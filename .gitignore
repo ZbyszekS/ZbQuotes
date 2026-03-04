@@ -1,0 +1,32 @@
+# --- Python Environment ---
+# Ignore the virtual environment (it's huge and unique to your PC)
+.venv/
+venv/
+env/
+bin/
+lib/
+
+# --- Python Cache ---
+# Ignore compiled code that Python generates automatically
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- SQLite Database ---
+*.sqlite
+*.db
+*.db-journal
+*.db-wal
+
+# --- IDE & OS Specific ---
+# Ignore VS Code and Windsurf settings/history
+.vscode/
+.history/
+.DS_Store
+Thumbs.db
+
+# --- Distribution / Packaging ---
+# eventually turn PySide app into an .exe
+dist/
+build/
+*.spec

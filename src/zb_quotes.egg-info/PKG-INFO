@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: zb-quotes
+Version: 0.1.0
+Summary: Quote management system
+Author: zbyszek
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: alembic
