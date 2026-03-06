@@ -1,8 +1,8 @@
-"""initial schema
+"""initial
 
-Revision ID: cb0c6af3e3cf
+Revision ID: ff2e17be9384
 Revises: 
-Create Date: 2026-03-03 20:24:11.948363
+Create Date: 2026-03-05 11:15:42.471326
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'cb0c6af3e3cf'
+revision: str = 'ff2e17be9384'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,26 +25,37 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=45), nullable=False),
     sa.Column('description', sa.String(length=255), nullable=True),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('gfi',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=45), nullable=False),
-    sa.Column('description', sa.String(length=255), nullable=True),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_fit'))
     )
     op.create_table('quoted_unit',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=45), nullable=True),
     sa.Column('description', sa.String(length=225), nullable=True),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quoted_unit'))
     )
     op.create_table('vendor',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=45), nullable=True),
     sa.Column('description', sa.String(length=225), nullable=True),
     sa.Column('allowed_time_series', sa.String(length=225), nullable=True),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_vendor'))
+    )
+    op.create_table('gfi',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('fit_id', sa.Integer(), nullable=True),
+    sa.Column('name', sa.String(length=45), nullable=False),
+    sa.Column('description', sa.String(length=255), nullable=True),
+    sa.ForeignKeyConstraint(['fit_id'], ['fit.id'], name=op.f('fk_gfi_fit_id_fit')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_gfi'))
+    )
+    op.create_table('quoted_unit_conversion',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('quoted_unit_from_id', sa.Integer(), nullable=True),
+    sa.Column('quoted_unit_to_id', sa.Integer(), nullable=True),
+    sa.Column('conversion_factor', sa.Numeric(precision=10, scale=4), nullable=False),
+    sa.ForeignKeyConstraint(['quoted_unit_from_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_from_id_quoted_unit')),
+    sa.ForeignKeyConstraint(['quoted_unit_to_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_to_id_quoted_unit')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quoted_unit_conversion'))
     )
     op.create_table('currency',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -52,25 +63,16 @@ def upgrade() -> None:
     sa.Column('symbol', sa.String(length=15), nullable=False),
     sa.Column('name', sa.String(length=45), nullable=False),
     sa.Column('Numeric_places', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('quoted_unit_conversion',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('quoted_unit_from_id', sa.Integer(), nullable=True),
-    sa.Column('quoted_unit_to_id', sa.Integer(), nullable=True),
-    sa.Column('conversion_factor', sa.Numeric(precision=10, scale=4), nullable=False),
-    sa.ForeignKeyConstraint(['quoted_unit_from_id'], ['quoted_unit.id'], ),
-    sa.ForeignKeyConstraint(['quoted_unit_to_id'], ['quoted_unit.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], name=op.f('fk_currency_gfi_id_gfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_currency'))
     )
     op.create_table('split',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('gfi_id', sa.Integer(), nullable=True),
     sa.Column('split_date', sa.String(length=45), nullable=False),
     sa.Column('ratio', sa.Numeric(precision=10, scale=4), nullable=False),
-    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], name=op.f('fk_split_gfi_id_gfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_split'))
     )
     op.create_table('dividend',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -78,9 +80,9 @@ def upgrade() -> None:
     sa.Column('currency_id', sa.Integer(), nullable=True),
     sa.Column('dividend_date', sa.Numeric(precision=10, scale=4), nullable=False),
     sa.Column('amount', sa.Numeric(precision=10, scale=4), nullable=False),
-    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], ),
-    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], name=op.f('fk_dividend_currency_id_currency')),
+    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], name=op.f('fk_dividend_gfi_id_gfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_dividend'))
     )
     op.create_table('market',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -88,8 +90,8 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=225), nullable=True),
     sa.Column('abbreviation', sa.String(length=15), nullable=True),
     sa.Column('currency_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], name=op.f('fk_market_currency_id_currency')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_market'))
     )
     op.create_table('qfi',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -100,20 +102,20 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=45), nullable=False),
     sa.Column('description', sa.String(length=225), nullable=True),
     sa.Column('quoted_amount', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], ),
-    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], ),
-    sa.ForeignKeyConstraint(['market_id'], ['market.id'], ),
-    sa.ForeignKeyConstraint(['quoted_unit_id'], ['quoted_unit.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['currency_id'], ['currency.id'], name=op.f('fk_qfi_currency_id_currency')),
+    sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], name=op.f('fk_qfi_gfi_id_gfi')),
+    sa.ForeignKeyConstraint(['market_id'], ['market.id'], name=op.f('fk_qfi_market_id_market')),
+    sa.ForeignKeyConstraint(['quoted_unit_id'], ['quoted_unit.id'], name=op.f('fk_qfi_quoted_unit_id_quoted_unit')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_qfi'))
     )
     op.create_table('pips',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('qfi_id', sa.Integer(), nullable=True),
     sa.Column('date_from', sa.Date(), nullable=True),
     sa.Column('price_precision', sa.Integer(), nullable=True),
-    sa.Column('pips_value', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.ForeignKeyConstraint(['qfi_id'], ['qfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.Column('pips_value', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.ForeignKeyConstraint(['qfi_id'], ['qfi.id'], name=op.f('fk_pips_qfi_id_qfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_pips'))
     )
     op.create_table('vfi',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -122,69 +124,69 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=45), nullable=True),
     sa.Column('symbol', sa.String(length=45), nullable=True),
     sa.Column('description', sa.String(length=225), nullable=True),
-    sa.ForeignKeyConstraint(['qfi_id'], ['qfi.id'], ),
-    sa.ForeignKeyConstraint(['vendor_id'], ['vendor.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['qfi_id'], ['qfi.id'], name=op.f('fk_vfi_qfi_id_qfi')),
+    sa.ForeignKeyConstraint(['vendor_id'], ['vendor.id'], name=op.f('fk_vfi_vendor_id_vendor')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_vfi'))
     )
     op.create_table('quote_1day',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vfi_id', sa.Integer(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=True),
-    sa.Column('open', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('high', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('low', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('close', sa.Numeric(precision=10, scale=8), nullable=True),
+    sa.Column('open', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('high', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('low', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('close', sa.Numeric(precision=18, scale=8), nullable=True),
     sa.Column('volume', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], name=op.f('fk_quote_1day_vfi_id_vfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quote_1day'))
     )
     op.create_table('quote_1hour',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vfi_id', sa.Integer(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=True),
-    sa.Column('open', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('high', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('low', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('close', sa.Numeric(precision=10, scale=8), nullable=True),
+    sa.Column('open', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('high', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('low', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('close', sa.Numeric(precision=18, scale=8), nullable=True),
     sa.Column('volume', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], name=op.f('fk_quote_1hour_vfi_id_vfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quote_1hour'))
     )
     op.create_table('quote_1min',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vfi_id', sa.Integer(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=True),
-    sa.Column('open', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('high', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('low', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('close', sa.Numeric(precision=10, scale=8), nullable=True),
+    sa.Column('open', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('high', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('low', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('close', sa.Numeric(precision=18, scale=8), nullable=True),
     sa.Column('volume', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], name=op.f('fk_quote_1min_vfi_id_vfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quote_1min'))
     )
     op.create_table('quote_1month',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vfi_id', sa.Integer(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=True),
-    sa.Column('open', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('high', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('low', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('close', sa.Numeric(precision=10, scale=8), nullable=True),
+    sa.Column('open', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('high', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('low', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('close', sa.Numeric(precision=18, scale=8), nullable=True),
     sa.Column('volume', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], name=op.f('fk_quote_1month_vfi_id_vfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quote_1month'))
     )
     op.create_table('quote_1week',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vfi_id', sa.Integer(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=True),
-    sa.Column('open', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('high', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('low', sa.Numeric(precision=10, scale=8), nullable=True),
-    sa.Column('close', sa.Numeric(precision=10, scale=8), nullable=True),
+    sa.Column('open', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('high', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('low', sa.Numeric(precision=18, scale=8), nullable=True),
+    sa.Column('close', sa.Numeric(precision=18, scale=8), nullable=True),
     sa.Column('volume', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['vfi_id'], ['vfi.id'], name=op.f('fk_quote_1week_vfi_id_vfi')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quote_1week'))
     )
     # ### end Alembic commands ###
 
@@ -203,10 +205,10 @@ def downgrade() -> None:
     op.drop_table('market')
     op.drop_table('dividend')
     op.drop_table('split')
-    op.drop_table('quoted_unit_conversion')
     op.drop_table('currency')
+    op.drop_table('quoted_unit_conversion')
+    op.drop_table('gfi')
     op.drop_table('vendor')
     op.drop_table('quoted_unit')
-    op.drop_table('gfi')
     op.drop_table('fit')
     # ### end Alembic commands ###

@@ -1,23 +1,31 @@
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String, ForeignKey, Numeric, DateTime, Date
-from sqlalchemy.orm import relationship
+# This is the models file for the ZbQuotes database
+from datetime import datetime, date
+from decimal import Decimal
+from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
+from sqlalchemy import String, ForeignKey, Numeric, DateTime, Date, MetaData, UniqueConstraint
+
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
 
 class Base(DeclarativeBase):
-    pass
-
+    metadata = MetaData(naming_convention=convention)
 
 
 class Fit(Base):
     """     Financial instrument type     """
     __tablename__ = 'fit'
 
-    id          = Column(Integer,     primary_key=True)
-    name        = Column(String(45),  nullable=False)
-    description = Column(String(255), nullable=True)
-
+    id:          Mapped[int]        = mapped_column(primary_key=True)
+    name:        Mapped[str]        = mapped_column(String(45))
+    description: Mapped[str | None] = mapped_column(String(255))
+    
     # parent to
-    gfis = relationship('Gfi', back_populates='fit')
-
+    gfis: Mapped[list["Gfi"]] = relationship(back_populates='fit')
 
     def __repr__(self):
         return f"<Fit(id={self.id}, name='{self.name}')>"
@@ -28,17 +36,24 @@ class Gfi(Base):
     """     Global financial instrument     """
     __tablename__ = 'gfi'
 
-    id          = Column(Integer,     primary_key=True)
-    name        = Column(String(45),  nullable=False)
-    description = Column(String(255), nullable=True)
+    id:          Mapped[int]        = mapped_column(primary_key=True)
+    fit_id:      Mapped[int]        = mapped_column(ForeignKey('fit.id'))
+    name:        Mapped[str]        = mapped_column(String(45),  nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255))
 
     # child of
-    fit = relationship('Fit', back_populates='gfis')
+    fit: Mapped["Fit"] = relationship(back_populates='gfis')
 
     # parent to
-    splits = relationship('Split', back_populates='gfi')
-    dividends = relationship('Dividend', back_populates='gfi')
-
+    splits:             Mapped[list["Split"]]    = relationship(back_populates='gfi')
+    dividends:          Mapped[list["Dividend"]] = relationship("Dividend", foreign_keys="[Dividend.gfi_id]",      back_populates='gfi')
+    dividends_currency: Mapped[list["Dividend"]] = relationship("Dividend", foreign_keys="[Dividend.currency_id]", back_populates='currency')
+    qfis:               Mapped[list["Qfi"]]      = relationship("Qfi", foreign_keys="[Qfi.gfi_id]",      back_populates="gfi")
+    qfis_as_currency:   Mapped[list["Qfi"]]      = relationship("Qfi", foreign_keys="[Qfi.currency_id]", back_populates="currency_gfi")
+    markets:            Mapped[list["Market"]]   = relationship(back_populates='currency')
+    
+    # one to one relationships
+    currency_details: Mapped["CurrencyDetails"] = relationship(back_populates='gfi', uselist=False)
     
     def __repr__(self):
         return f"<Gfi(id={self.id}, name='{self.name}')>"
@@ -48,34 +63,29 @@ class Split(Base):
     """     Split     """
     __tablename__ = 'split'
 
-    id          = Column(Integer, primary_key=True)
-    gfi_id      = Column(Integer, ForeignKey('gfi.id'))
-    split_date  = Column(String(45), nullable=False)
-    ratio       = Column(Numeric(10, 4, asdecimal=True), nullable=False)
+    id:          Mapped[int]      = mapped_column(primary_key=True)
+    gfi_id:      Mapped[int]      = mapped_column(ForeignKey('gfi.id'))
+    split_date:  Mapped[datetime] = mapped_column(DateTime)
+    ratio:       Mapped[Decimal]  = mapped_column(Numeric(10, 4, asdecimal=True))
 
     # child of
-    gfi = relationship('Gfi', back_populates='splits')
+    gfi: Mapped["Gfi"] = relationship(back_populates='splits')
 
 
 
-class Currency(Base):
-    """     Currency     """
-    __tablename__ = 'currency'
+class CurrencyDetails(Base):
+    """     Currency details     """
+    __tablename__ = 'currency_details'
 
-    id             = Column(Integer,    primary_key=True)
-    gfi_id         = Column(Integer,    ForeignKey('gfi.id'))
-    symbol         = Column(String(15), nullable=False)
-    name           = Column(String(45), nullable=False)
-    Numeric_places = Column(Integer)
-
+    id:          Mapped[int]    = mapped_column(primary_key=True)
+    gfi_id:      Mapped[int]    = mapped_column(ForeignKey('gfi.id'))
+    symbol:      Mapped[str]    = mapped_column(String(15))
+    name:        Mapped[str]    = mapped_column(String(45))
+    decimal_places: Mapped[int] = mapped_column()
 
     # child of (one to one relationship)
-    gfi = relationship('Gfi', back_populates='currencies')
+    gfi: Mapped["Gfi"] = relationship(back_populates='currency_details')
 
-    # parent to
-    markets = relationship('Market', back_populates='currency')
-    ifns    = relationship('Ifn', back_populates='currency')
-    dividends = relationship('Dividend', back_populates='currency')
 
     def __repr__(self):
         return f"<Currency(id={self.id}, symbol='{self.symbol}', name='{self.name}')>"
@@ -86,15 +96,15 @@ class Dividend(Base):
     """     Dividend     """
     __tablename__ = 'dividend'
 
-    id            = Column(Integer, primary_key=True)
-    gfi_id        = Column(Integer, ForeignKey('gfi.id'))
-    currency_id   = Column(Integer, ForeignKey('currency.id'))
-    dividend_date = Column(Numeric(10, 4, asdecimal=True), nullable=False)
-    amount        = Column(Numeric(10, 4, asdecimal=True), nullable=False)
+    id:            Mapped[int]      = mapped_column(primary_key=True)
+    gfi_id:        Mapped[int]      = mapped_column(ForeignKey('gfi.id'))
+    currency_id:   Mapped[int]      = mapped_column(ForeignKey('gfi.id'))
+    dividend_date: Mapped[datetime] = mapped_column(DateTime)
+    amount:        Mapped[Decimal]  = mapped_column(Numeric(10, 4, asdecimal=True))
 
     # child of
-    gfi      = relationship('Gfi', back_populates='dividends')
-    currency = relationship('Currency', back_populates='dividends')
+    gfi:      Mapped["Gfi"] = relationship(back_populates='dividends', foreign_keys=[gfi_id])
+    currency: Mapped["Gfi"] = relationship(back_populates='dividends_currency', foreign_keys=[currency_id])
 
 
 
@@ -102,17 +112,17 @@ class Market(Base):
     """     Market where financial instruments are quoted     """
     __tablename__ = 'market'
 
-    id          = Column(Integer,     primary_key=True)
-    name        = Column(String(45),  nullable=False)
-    description = Column(String(225), nullable=True)
-    abbreviation= Column(String(15))
-    currency_id = Column(Integer,     ForeignKey('currency.id'))
+    id:           Mapped[int]        = mapped_column(primary_key=True)
+    currency_id:  Mapped[int]        = mapped_column(ForeignKey('gfi.id'))
+    name:         Mapped[str]        = mapped_column(String(45))
+    description:  Mapped[str | None] = mapped_column(String(225))
+    abbreviation: Mapped[str]        = mapped_column(String(15))
 
     # child of
-    currency = relationship('Currency', back_populates='markets')
+    currency: Mapped["Gfi"] = relationship(back_populates='markets')
 
     # parent of
-    ifns = relationship('Ifn', back_populates='market')
+    qfis: Mapped[list["Qfi"]] = relationship(back_populates='market')
 
 
     def __repr__(self):
@@ -123,62 +133,62 @@ class Market(Base):
 class QuotedUnit(Base):
     __tablename__ = 'quoted_unit'
 
-    id                  = Column(Integer, primary_key=True)
-    name                = Column(String(45))
-    description         = Column(String(225))
+    id:           Mapped[int]        = mapped_column(primary_key=True)
+    name:         Mapped[str]        = mapped_column(String(45))
+    description:  Mapped[str | None] = mapped_column(String(225))
 
     # parent to
-    qfis = relationship('Qfi', back_populates='quoted_unit')
+    qfis: Mapped["Qfi"] = relationship(back_populates='quoted_unit')
 
     # self-referencing relationships for conversions
-    conversions_from = relationship('QutedUnitConversion', foreign_keys='QutedUnitConversion.quoted_unit_from_id', back_populates='quoted_unit_from')
-    conversions_to   = relationship('QutedUnitConversion', foreign_keys='QutedUnitConversion.quoted_unit_to_id', back_populates='quoted_unit_to')
+    conversions_from: Mapped[list["QuotedUnitConversion"]] = relationship(foreign_keys='QuotedUnitConversion.quoted_unit_from_id', back_populates='quoted_unit_from')
+    conversions_to:   Mapped[list["QuotedUnitConversion"]] = relationship(foreign_keys='QuotedUnitConversion.quoted_unit_to_id',   back_populates='quoted_unit_to')
 
     def __repr__(self):
         return f"<QuotedUnit(id={self.id}, name='{self.name}', description='{self.description}')>"
 
 
 
-class QutedUnitConversion(Base):
+class QuotedUnitConversion(Base):
     __tablename__ = 'quoted_unit_conversion'
 
-    id                  = Column(Integer, primary_key=True)
-    quoted_unit_from_id = Column(Integer, ForeignKey('quoted_unit.id'))
-    quoted_unit_to_id   = Column(Integer, ForeignKey('quoted_unit.id'))
-    conversion_factor   = Column(Numeric(10, 4, asdecimal=True), nullable=False)
+    id:                  Mapped[int] = mapped_column(primary_key=True)
+    quoted_unit_from_id: Mapped[int] = mapped_column(ForeignKey('quoted_unit.id'))
+    quoted_unit_to_id:   Mapped[int] = mapped_column(ForeignKey('quoted_unit.id'))
+    conversion_factor:   Mapped[Decimal] = mapped_column(Numeric(10, 4, asdecimal=True), nullable=False)
 
     # child of
-    quoted_unit_from = relationship('QuotedUnit', foreign_keys=[quoted_unit_from_id], back_populates='conversions_from')
-    quoted_unit_to   = relationship('QuotedUnit', foreign_keys=[quoted_unit_to_id], back_populates='conversions_to')
+    quoted_unit_from: Mapped["QuotedUnit"] = relationship(foreign_keys=[quoted_unit_from_id], back_populates='conversions_from')
+    quoted_unit_to:   Mapped["QuotedUnit"] = relationship(foreign_keys=[quoted_unit_to_id], back_populates='conversions_to')
 
     def __repr__(self):
-        return f"<QutedUnitConversion(id={self.id}, quoted_unit_from_id={self.quoted_unit_from_id}, quoted_unit_to_id={self.quoted_unit_to_id}, conversion_factor={self.conversion_factor})>"
+        return f"<QuotedUnitConversion(id={self.id}, quoted_unit_from_id={self.quoted_unit_from_id}, quoted_unit_to_id={self.quoted_unit_to_id}, conversion_factor={self.conversion_factor})>"
 
 
 
 class Qfi(Base):
     __tablename__ = 'qfi'
 
-    id          = Column(Integer, primary_key=True)
+    id:          Mapped[int] = mapped_column(primary_key=True)
 
-    gfi_id              = Column(Integer, ForeignKey('gfi.id'))
-    market_id           = Column(Integer, ForeignKey('market.id'))
-    currency_id         = Column(Integer, ForeignKey('currency.id'))
-    quoted_unit_id      = Column(Integer, ForeignKey('quoted_unit.id'))
+    gfi_id:              Mapped[int] = mapped_column(ForeignKey('gfi.id'))
+    market_id:           Mapped[int] = mapped_column(ForeignKey('market.id'))
+    currency_id:         Mapped[int] = mapped_column(ForeignKey('gfi.id'))
+    quoted_unit_id:      Mapped[int] = mapped_column(ForeignKey('quoted_unit.id'))
 
-    name                = Column(String(45),  nullable=False)
-    description         = Column(String(225), nullable=True)
-    quoted_amount       = Column(Integer)                       # amount of unit being quoted
+    name:                Mapped[str]        = mapped_column(String(45))
+    description:         Mapped[str | None] = mapped_column(String(225))
+    quoted_amount:       Mapped[int]        = mapped_column()                       # amount of unit being quoted
     
     # child of
-    gfi       =   relationship('Gfi',        back_populates='qfis')
-    market    =   relationship('Market',     back_populates='qfis')
-    currency  =   relationship('Currency',   back_populates='qfis')
-    quoted_unit = relationship('QuotedUnit', back_populates='qfis')
+    gfi:          Mapped["Gfi"] = relationship("Gfi", foreign_keys=[gfi_id],      back_populates='qfis')
+    currency_gfi: Mapped["Gfi"] = relationship("Gfi", foreign_keys=[currency_id], back_populates='qfis_as_currency')
+    market:       Mapped["Market"]     = relationship(back_populates='qfis')
+    quoted_unit:  Mapped["QuotedUnit"] = relationship(back_populates='qfis')
 
     # parent of
-    ifvs = relationship('Ifv',  back_populates='qfi')
-    pips = relationship('Pips', back_populates='qfi')
+    vfis:  Mapped[list["Vfi"]]  = relationship(back_populates='qfi')
+    pipss: Mapped[list["Pips"]] = relationship(back_populates='qfi')
     
     def __repr__(self):
         return f"<Qfi(id={self.id}, name='{self.name}', description='{self.description}', quoted_amount={self.quoted_amount})>"
@@ -188,14 +198,14 @@ class Qfi(Base):
 class Pips(Base):
     __tablename__ = 'pips'
 
-    id = Column(Integer, primary_key=True)
-    qfi_id          = Column(Integer, ForeignKey('qfi.id'))
-    date_from       = Column(Date)
-    price_precision = Column(Integer)                        # number of decimal places
-    pips_value      = Column(Numeric(18, 8, asdecimal=True)) # value of one pip
+    id:              Mapped[int] = mapped_column(primary_key=True)
+    qfi_id:          Mapped[int] = mapped_column(ForeignKey('qfi.id'))
+    date_from:       Mapped[date] = mapped_column(Date)
+    price_precision: Mapped[int] = mapped_column()                        # number of decimal places
+    pips_value:      Mapped[Decimal] = mapped_column(Numeric(18, 8, asdecimal=True)) # value of one pip
 
     # is child of
-    qfi = relationship('Qfi', back_populates='pips')
+    qfi: Mapped["Qfi"] = relationship(back_populates='pipss')
 
 
     def __repr__(self):
@@ -206,14 +216,13 @@ class Pips(Base):
 class Vendor(Base):
     __tablename__ = 'vendor'
 
-    id                  = Column(Integer, primary_key=True)
-    name                = Column(String(45))
-    description         = Column(String(225))
-    allowed_time_series = Column(String(225))
-
+    id:                  Mapped[int]        = mapped_column(primary_key=True)
+    name:                Mapped[str]        = mapped_column(String(45))
+    description:         Mapped[str | None] = mapped_column(String(225))
+    allowed_time_series: Mapped[str]        = mapped_column(String(225))
 
     # parent to
-    vfi = relationship('Vfi', back_populates='vendor')
+    vfis: Mapped[list["Vfi"]] = relationship(back_populates='vendor')
 
     def __repr__(self):
         return f"<Vendor(id={self.id}, name='{self.name}', description='{self.description}')>"
@@ -224,123 +233,112 @@ class Vfi(Base):
     """     Vendor delivered Financial Instrument    """
     __tablename__ = 'vfi'
 
-    id = Column(Integer, primary_key=True)
-
-    qfi_id         = Column(Integer, ForeignKey('qfi.id'))
-    vendor_id = Column(Integer, ForeignKey('vendor.id'))
-
-    name             = Column(String(45))
-    symbol           = Column(String(45)) # ticker symbol
-    description      = Column(String(225))
-    
+    id:          Mapped[int]        = mapped_column(primary_key=True)
+    qfi_id:      Mapped[int]        = mapped_column(ForeignKey('qfi.id'))
+    vendor_id:   Mapped[int]        = mapped_column(ForeignKey('vendor.id'))
+    name:        Mapped[str]        = mapped_column(String(45))
+    symbol:      Mapped[str]        = mapped_column(String(45)) # ticker symbol
+    description: Mapped[str | None] = mapped_column(String(225))
 
     # child of
-    qfi    = relationship('Qfi',    back_populates='vfi')
-    vendor = relationship('Vendor', back_populates='vfi')
+    qfi:    Mapped["Qfi"]    = relationship(back_populates='vfis')
+    vendor: Mapped["Vendor"] = relationship(back_populates='vfis')
 
-    # parent of
-    vfi_tss = relationship('VfiTs', back_populates='vfi')
+    # parent to:
+    quote_1mins:  Mapped[list["Quote_1min"]]  = relationship(back_populates='vfi')
+    quote_1hours: Mapped[list["Quote_1hour"]] = relationship(back_populates='vfi')
+    quote_1days:  Mapped[list["Quote_1day"]]  = relationship(back_populates='vfi')
+    quote_1weeks: Mapped[list["Quote_1week"]] = relationship(back_populates='vfi')
+    quote_1months:Mapped[list["Quote_1month"]]= relationship(back_populates='vfi')
 
+    
     def __repr__(self):
         return f"<Vfi(id={self.id}, name='{self.name}', symbol='{self.symbol}', description='{self.description}')>"
 
 
+# --- Mixins for cleaner code ---
+class QuoteMixin:
+    """Standard columns for all quote tables"""
+    id:        Mapped[int]        = mapped_column(primary_key=True)
+    open:      Mapped[float]      = mapped_column(Numeric(18, 8))
+    high:      Mapped[float]      = mapped_column(Numeric(18, 8))
+    low:       Mapped[float]      = mapped_column(Numeric(18, 8))
+    close:     Mapped[float]      = mapped_column(Numeric(18, 8))
+    volume:    Mapped[int | None] = mapped_column()
+    
+    @classmethod
+    def __declare_last__(cls):
+        # Ensures one quote per timestamp per VFI
+        cls.__table__.append_constraint(
+            UniqueConstraint('vfi_id', 'timestamp' if hasattr(cls, 'timestamp') else 'q_date')
+        )
 
-class Quote_1min(Base):
+class Quote_1min(Base, QuoteMixin):
     __tablename__ = 'quote_1min'
 
-    id        = Column(Integer, primary_key=True)
-    vfi_id    = Column(Integer, ForeignKey('vfi.id'))
-    timestamp = Column(DateTime)
-    open      = Column(Numeric(18, 8, asdecimal=True))
-    high      = Column(Numeric(18, 8, asdecimal=True))
-    low       = Column(Numeric(18, 8, asdecimal=True))
-    close     = Column(Numeric(18, 8, asdecimal=True))
-    volume    = Column(Integer)
-
+    timestamp: Mapped[DateTime] = mapped_column(DateTime, index=True)
+    vfi_id:    Mapped[int]      = mapped_column(ForeignKey('vfi.id'))
+    
     # is child of
-    vfi = relationship('Vfi', back_populates='quote_1min')
+    vfi: Mapped["Vfi"] = relationship(back_populates='quote_1mins')
 
     def __repr__(self):
         return f"<Quote_1min(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.timestamp}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"
 
 
 
-class Quote_1hour(Base):
+class Quote_1hour(Base, QuoteMixin):
     __tablename__ = 'quote_1hour'
 
-    id        = Column(Integer, primary_key=True)
-    vfi_id    = Column(Integer, ForeignKey('vfi.id'))
-    timestamp = Column(DateTime)
-    open      = Column(Numeric(18, 8, asdecimal=True))
-    high      = Column(Numeric(18, 8, asdecimal=True))
-    low       = Column(Numeric(18, 8, asdecimal=True))
-    close     = Column(Numeric(18, 8, asdecimal=True))
-    volume    = Column(Integer)
-
+    timestamp: Mapped[DateTime]   = mapped_column(DateTime, index=True)
+    vfi_id: Mapped[int] = mapped_column(ForeignKey('vfi.id'))
+    
     # is child of
-    vfi = relationship('Vfi', back_populates='quote_1hour')
+    vfi: Mapped["Vfi"] = relationship(back_populates='quote_1hours')
 
     def __repr__(self):
         return f"<Quote_1hour(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.timestamp}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
 
 
 
-class Quote_1day(Base):
+class Quote_1day(Base, QuoteMixin):
     __tablename__ = 'quote_1day'
 
-    id        = Column(Integer, primary_key=True)
-    vfi_id    = Column(Integer, ForeignKey('vfi.id'))
-    timestamp = Column(DateTime)
-    open      = Column(Numeric(18, 8, asdecimal=True))
-    high      = Column(Numeric(18, 8, asdecimal=True))
-    low       = Column(Numeric(18, 8, asdecimal=True))
-    close     = Column(Numeric(18, 8, asdecimal=True))
-    volume    = Column(Integer)
-
+    q_date: Mapped[Date] = mapped_column(Date, index=True)
+    vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
+    
     # is child of
-    vfi = relationship('Vfi', back_populates='quote_1day')
+    vfi: Mapped["Vfi"] = relationship(back_populates='quote_1days')
 
     def __repr__(self):
-        return f"<Quote_1day(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.timestamp}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
+        return f"<Quote_1day(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.q_date}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
+    
 
 
-
-class Quote_1week(Base):
+class Quote_1week(Base, QuoteMixin):
     __tablename__ = 'quote_1week'
 
-    id        = Column(Integer, primary_key=True)
-    vfi_id    = Column(Integer, ForeignKey('vfi.id'))
-    timestamp = Column(DateTime)
-    open      = Column(Numeric(18, 8, asdecimal=True))
-    high      = Column(Numeric(18, 8, asdecimal=True))
-    low       = Column(Numeric(18, 8, asdecimal=True))
-    close     = Column(Numeric(18, 8, asdecimal=True))
-    volume    = Column(Integer)
-
+    q_date: Mapped[Date] = mapped_column(Date, index=True)
+    vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
+    
     # is child of
-    vfi = relationship('Vfi', back_populates='quote_1week')
+    vfi: Mapped["Vfi"] = relationship(back_populates='quote_1weeks')
 
     def __repr__(self):
-        return f"<Quote_1week(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.timestamp}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
+        return f"<Quote_1week(id={self.id}, vfi_id={self.vfi_id}, q_date={self.q_date}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
+    
 
 
-class Quote_1month(Base):
+class Quote_1month(Base, QuoteMixin):
     __tablename__ = 'quote_1month'
 
-    id        = Column(Integer, primary_key=True)
-    vfi_id    = Column(Integer, ForeignKey('vfi.id'))
-    timestamp = Column(DateTime)
-    open      = Column(Numeric(18, 8, asdecimal=True))
-    high      = Column(Numeric(18, 8, asdecimal=True))
-    low       = Column(Numeric(18, 8, asdecimal=True))
-    close     = Column(Numeric(18, 8, asdecimal=True))
-    volume    = Column(Integer)
-
+    q_date: Mapped[Date] = mapped_column(Date, index=True)
+    vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
+    
     # is child of
-    vfi = relationship('Vfi', back_populates='quote_1month')
+    vfi: Mapped["Vfi"] = relationship(back_populates='quote_1months')
 
     def __repr__(self):
-        return f"<Quote_1month(id={self.id}, vfi_id={self.vfi_id}, timestamp={self.timestamp}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
-
+        return f"<Quote_1month(id={self.id}, vfi_id={self.vfi_id}, q_date={self.q_date}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
+    
 
