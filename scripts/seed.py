@@ -11,29 +11,82 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from zb_quotes.models.models import Fit
+from zb_quotes.models.models import Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe
 
 # ── Database connection ───────────────────────────────────────────────────────
-DATABASE_URL = "sqlite:////home/zbyszek/Documents/moje-dokumenty-overt/programowanie-win/databases/SQLite/Quotes/quotes2026.db"
+DATABASE_URL = os.getenv("DATABASE_URL") # e.g., "sqlite:////path/to/your/database.db" defined in .env file
+print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
 engine = create_engine(DATABASE_URL, echo=False)
 
 
 # ── Seed data definitions ─────────────────────────────────────────────────────
 
-FIT_DATA = [
-    {"id": 1, "name": "Cash",      "description": "Physical or digital cash"},
-    {"id": 2, "name": "Shares",    "description": "Equity shares / stocks"},
-    {"id": 3, "name": "Bonds",     "description": "Fixed income instruments"},
-    {"id": 4, "name": "Deposit",   "description": "Bank deposits"},
-    {"id": 5, "name": "Forex",     "description": "Foreign exchange instruments"},
-    {"id": 6, "name": "Commodity", "description": "Raw materials and commodities"},
+Fit_DATA_obj = [
+    Fit(id=1, name="Cash",      description="Physical or digital cash"),
+    Fit(id=2, name="Shares",    description="Equity shares / stocks"),
+    Fit(id=3, name="Bonds",     description="Fixed income instruments"),
+    Fit(id=4, name="Deposit",   description="Bank deposits"),
+    Fit(id=5, name="Forex",     description="Foreign exchange instruments"),
+    Fit(id=6, name="Commodity", description="Raw materials and commodities"),
+    Fit(id=7, name="ETF",       description="Exchange Traded Funds"),
+]
+
+Gfi_DATA_obj = [
+    Gfi(id=1, fit_id=1, name="PLN", description="Polish Zloty"),
+    Gfi(id=2, fit_id=1, name="USD", description="US Dollar"),
+    Gfi(id=3, fit_id=1, name="EUR", description="Euro"),
+    Gfi(id=4, fit_id=1, name="GBP", description="British Pound"),
+    Gfi(id=5, fit_id=1, name="JPY", description="Japanese Yen"),
+    Gfi(id=6, fit_id=1, name="CHF", description="Swiss Franc"),
+]
+CurrencyDetails_DATA_obj = [
+    CurrencyDetails(id=1, gfi_id=1, code="PLN", symbol="zł",  name="Polish Zloty",  decimal_places=2),
+    CurrencyDetails(id=2, gfi_id=2, code="USD", symbol="$",   name="US Dollar",     decimal_places=2),
+    CurrencyDetails(id=3, gfi_id=3, code="EUR", symbol="€",   name="Euro",          decimal_places=2),
+    CurrencyDetails(id=4, gfi_id=4, code="GBP", symbol="£",   name="British Pound", decimal_places=2),
+    CurrencyDetails(id=5, gfi_id=5, code="JPY", symbol="¥",   name="Japanese Yen",  decimal_places=0),
+    CurrencyDetails(id=6, gfi_id=6, code="CHF", symbol="Fr.", name="Swiss Franc",   decimal_places=2),
+]
+QuotedUnit_DATA_obj = [
+    QuotedUnit(id=1, name="Shares",      description="Stock shares",          symbol="sh"),
+    QuotedUnit(id=2, name="Bushel",      description="US Bushel = ~60lbs",    symbol="bu"),
+    QuotedUnit(id=3, name="Metric Tonne",description="Metric tonne = 1000kg", symbol="t"),
+    QuotedUnit(id=4, name="Gram",        description="SI gram",               symbol="g"),
+    QuotedUnit(id=5, name="Ounce",       description="US Troy ounce",         symbol="oz"),
+    QuotedUnit(id=6, name="Barrel",      description="US Barrel",             symbol="bbl"),
+    QuotedUnit(id=7, name="Cubic foot",  description="US Cubic foot",         symbol="ft³"),
+    QuotedUnit(id=8, name="Cubic meter", description="SI Cubic meter",        symbol="m³"),
+    QuotedUnit(id=9, name="Bushel_Wheat",description="US Bushel of Wheat",    symbol="bu"),
+]
+QuotedUnitConversion_DATA_obj = [
+    QuotedUnitConversion(id=1, quoted_unit_from_id=5, quoted_unit_to_id=4, conversion_factor=28.3495),
+    QuotedUnitConversion(id=2, quoted_unit_from_id=7, quoted_unit_to_id=8, conversion_factor=0.0283168),
+    QuotedUnitConversion(id=3, quoted_unit_from_id=9, quoted_unit_to_id=3, conversion_factor=0.0272155),
+]
+Market_DATA_obj = [
+    Market(id=1, currency_id=1, mic="XWAR", name="Warsaw Stock Exchange",    description="Warsaw Stock Exchange", abbreviation="WSE"),
+    Market(id=2, currency_id=2, mic="XNYS", name="New York Stock Exchange",  description="New York Stock Exchange", abbreviation="NYSE"),
+    Market(id=3, currency_id=3, mic="XETR", name="Frankfurt Stock Exchange", description="Frankfurt Stock Exchange (Xetra)", abbreviation="FSE"),
+    Market(id=4, currency_id=4, mic="XLON", name="London Stock Exchange",    description="London Stock Exchange", abbreviation="LSE"),
+    
+]
+TimeFrame_DATA_obj = [
+    Timeframe(code="1m",   seconds=60,     is_intraday=True,  is_aggregatable=True,  name="1 Minute"),
+    Timeframe(code="1h",   seconds=3600,   is_intraday=True,  is_aggregatable=True,  name="1 Hour"),
+    Timeframe(code="1d",   seconds=86400,  is_intraday=False, is_aggregatable=False, name="Daily"),
+    Timeframe(code="1w",   seconds=7*86400,is_intraday=False, is_aggregatable=False, name="Weekly"),
+    Timeframe(code="1M",   seconds=None,   is_intraday=False, is_aggregatable=False, name="Monthly"),
 ]
 
 
 # ── Helper: upsert-style insert ───────────────────────────────────────────────
 
+# for data in dictionary format
 def seed_table(session: Session, model, data: list[dict], label: str):
     """
     Insert rows that don't already exist (matched by primary key 'id').
@@ -52,6 +105,25 @@ def seed_table(session: Session, model, data: list[dict], label: str):
 
     print(f"  {label:<20} inserted: {inserted:>3}   skipped (already exist): {skipped:>3}")
 
+# for data in object format
+def seed_table_obj(session: Session, objects: list, label: str):
+    """
+    Insert rows that don't already exist (matched by primary key 'id').
+    Prints a summary of what was inserted vs. skipped.
+    """
+    inserted = 0
+    skipped  = 0
+
+    for obj in objects:
+        existing = session.get(type(obj), obj.id)
+        if existing is None:
+            session.add(obj)
+            inserted += 1
+        else:
+            skipped += 1
+
+    print(f"  {label:<22} inserted: {inserted:>3}   skipped (already exist): {skipped:>3}")
+
 
 # ── Main seed function ────────────────────────────────────────────────────────
 
@@ -59,7 +131,14 @@ def run_seed():
     print("\n=== Seeding database ===\n")
 
     with Session(engine) as session:
-        seed_table(session, Fit, FIT_DATA, "Financial Inst. Types")
+        # seed_table(session, Fit, FIT_DATA, "Financial Inst. Types")
+        seed_table_obj(session, Fit_DATA_obj, "Financial Inst. Types")
+        seed_table_obj(session, Gfi_DATA_obj, "Gfi")
+        seed_table_obj(session, CurrencyDetails_DATA_obj, "Currency Details")
+        seed_table_obj(session, QuotedUnit_DATA_obj, "Quoted Unit")
+        seed_table_obj(session, QuotedUnitConversion_DATA_obj, "Quoted Unit Conversion")
+        seed_table_obj(session, Market_DATA_obj, "Market")
+        seed_table_obj(session, TimeFrame_DATA_obj, "Time Frame")
 
         session.commit()
 

@@ -1,3 +1,11 @@
+# --- Work with scripts ---
+jupyter_notebooks/
+extract_mbank_pdf/
+zapas/
+import_data/
+# --- Specyfic environment ---
+.env
+
 # --- Python Environment ---
 # Ignore the virtual environment (it's huge and unique to your PC)
 .venv/
