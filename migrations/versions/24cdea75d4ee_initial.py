@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 8a3ae9cd5d1e
+Revision ID: 24cdea75d4ee
 Revises: 
-Create Date: 2026-03-26 20:39:15.175456
+Create Date: 2026-03-27 18:50:56.643647
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8a3ae9cd5d1e'
+revision: str = '24cdea75d4ee'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -37,13 +37,6 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=45), nullable=False),
     sa.Column('description', sa.String(length=255), nullable=True),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_fit'))
-    )
-    op.create_table('industry',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=45), nullable=False),
-    sa.Column('description', sa.String(length=255), nullable=True),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_industry')),
-    sa.UniqueConstraint('name', name=op.f('uq_industry_name'))
     )
     op.create_table('quoted_unit',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -76,6 +69,24 @@ def upgrade() -> None:
     sa.Column('allowed_time_series', sa.String(length=225), nullable=False),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_vendor'))
     )
+    op.create_table('industry',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('sector_id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=45), nullable=False),
+    sa.Column('description', sa.String(length=255), nullable=True),
+    sa.ForeignKeyConstraint(['sector_id'], ['sector.id'], name=op.f('fk_industry_sector_id_sector')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_industry')),
+    sa.UniqueConstraint('name', name=op.f('uq_industry_name'))
+    )
+    op.create_table('quoted_unit_conversion',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('quoted_unit_from_id', sa.Integer(), nullable=False),
+    sa.Column('quoted_unit_to_id', sa.Integer(), nullable=False),
+    sa.Column('conversion_factor', sa.Numeric(precision=10, scale=4), nullable=False),
+    sa.ForeignKeyConstraint(['quoted_unit_from_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_from_id_quoted_unit')),
+    sa.ForeignKeyConstraint(['quoted_unit_to_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_to_id_quoted_unit')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_quoted_unit_conversion'))
+    )
     op.create_table('gfi',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('fit_id', sa.Integer(), nullable=False),
@@ -93,15 +104,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['industry_id'], ['industry.id'], name=op.f('fk_gfi_industry_id_industry')),
     sa.ForeignKeyConstraint(['sector_id'], ['sector.id'], name=op.f('fk_gfi_sector_id_sector')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_gfi'))
-    )
-    op.create_table('quoted_unit_conversion',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('quoted_unit_from_id', sa.Integer(), nullable=False),
-    sa.Column('quoted_unit_to_id', sa.Integer(), nullable=False),
-    sa.Column('conversion_factor', sa.Numeric(precision=10, scale=4), nullable=False),
-    sa.ForeignKeyConstraint(['quoted_unit_from_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_from_id_quoted_unit')),
-    sa.ForeignKeyConstraint(['quoted_unit_to_id'], ['quoted_unit.id'], name=op.f('fk_quoted_unit_conversion_quoted_unit_to_id_quoted_unit')),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_quoted_unit_conversion'))
     )
     op.create_table('currency_details',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -325,13 +327,13 @@ def downgrade() -> None:
     op.drop_table('gfi_fundamentals')
     op.drop_table('dividend')
     op.drop_table('currency_details')
-    op.drop_table('quoted_unit_conversion')
     op.drop_table('gfi')
+    op.drop_table('quoted_unit_conversion')
+    op.drop_table('industry')
     op.drop_table('vendor')
     op.drop_table('timeframe')
     op.drop_table('sector')
     op.drop_table('quoted_unit')
-    op.drop_table('industry')
     op.drop_table('fit')
     op.drop_table('country')
     # ### end Alembic commands ###

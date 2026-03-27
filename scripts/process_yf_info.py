@@ -14,7 +14,7 @@ from sqlalchemy.inspection import inspect
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from zb_quotes.models.models import Base, Fit, Gfi, GfiFundamentals, Sector, Industry, Country, Qfi, Market
+from zb_quotes.models.models import Base, Fit, Gfi, GfiFundamentals, Sector, Industry, Country, Qfi, Market, Vendor, Vfi
 ModelType = TypeVar("ModelType", bound=Base) # Type variable for SQLAlchemy models
 
 # ── Logger creation ───────────────────────────────────────────────────────
@@ -125,10 +125,13 @@ def get_data_from_json_file(path_to_file: Path) -> dict:
 
 
 
-def report_end(counter_processed: int, counter_skipped: int):
+def report_end(counter_processed: int, counter_skipped: int, gfi_seeded: list, qfi_seeded: list, vfi_seeded: list):
     print("--------------------------------")
     print(f"Processed: {counter_processed}")
     print(f"Skipped:   {counter_skipped}")
+    print(f"GFI seeded: {len(gfi_seeded)}")
+    print(f"QFI seeded: {len(qfi_seeded)}")
+    print(f"VFI seeded: {len(vfi_seeded)}")
     print("--------------------------------")
 
 def report_init(fPath: Path, dict_data: dict):
@@ -213,14 +216,14 @@ MAP_DB_TO_INFO = {
         Qfi.description.key:   Info2DbVal('longName'), # rich description
 
         # Core identification fields
-        Qfi.gfi_id.key:        None,   # will be set manually (link to parent Gfi)
-        Qfi.market_id.key:     None,   # will be resolved via Market model (see below)
-        Qfi.currency_id.key:   None,   # will be resolved via Currency Gfi (PLN, USD...)
-        Qfi.quoted_unit_id.key:None,   # usually "Shares" for equities → resolve via QuotedUnit
+        # Qfi.gfi_id.key:        None,   # will be set manually (link to parent Gfi)
+        # Qfi.market_id.key:     None,   # will be resolved via Market model (see below)
+        # Qfi.currency_id.key:   None,   # will be resolved via Currency Gfi (PLN, USD...)
+        # Qfi.quoted_unit_id.key:None,   # usually "Shares" for equities → resolve via QuotedUnit
 
         # Important yf fields for Qfi
-        Qfi.quoted_amount.key: Info2DbVal('quoteType', 
-            transform=lambda x: 1 if x == "EQUITY" else None),  # example: 1 share unit
+        # Qfi.quoted_amount.key: Info2DbVal('quoteType', 
+        #     transform=lambda x: 1 if x == "EQUITY" else None),  # example: 1 share unit
 
         # Optional but useful
         # You can add a custom column later if you want to store raw quoteType
@@ -246,11 +249,19 @@ MAP_DB_TO_INFO = {
 
 
 def get_id_by(session:   Session, 
-              model_cls: Type[ModelType], 
-              data:      dict[str, Any]) -> int:
-    stmt = select(model_cls).filter_by(**data)
+                  model_cls: Type[ModelType], 
+                  unique_fields: dict[str, Any]) -> int:
+    stmt = select(model_cls).filter_by(**unique_fields)
     obj  = session.execute(stmt).scalar_one_or_none()
     return obj.id if obj else None
+
+def get_by_fields(session:   Session, 
+                  model_cls: Type[ModelType], 
+                  unique_fields: dict[str, Any]) -> ModelType:
+    stmt = select(model_cls).filter_by(**unique_fields)
+    obj  = session.execute(stmt).scalar_one_or_none()
+    return obj
+
 
 
 def get_or_insert(session:   Session, 
@@ -301,7 +312,7 @@ def get_gfi_foreign_keys(session, yf_data: dict): # -> MAP_FOREIGN_KEYS
         sector_id = get_or_insert(session, Sector, {'name': sector_name}).id
     industry_name = yf_data.get('industryKey')
     if industry_name:
-        industry_id = get_or_insert(session, Industry, {'name': industry_name}).id
+        industry_id = get_or_insert(session, Industry, {'sector_id': sector_id, 'name': industry_name}).id
     country_name = yf_data.get('country')
     if country_name:
         country_id = get_id_by(session, Country, {'name': country_name}) # no insert, only get
@@ -316,25 +327,30 @@ def get_gfi_foreign_keys(session, yf_data: dict): # -> MAP_FOREIGN_KEYS
 
 def get_qfi_foreign_keys(session, info):
     market_id, currency_id = None, None
-    merket_name = info.get('exchange')
+    market_name = info.get('exchange')
     # yfinance exchange codes -> market codes
     # dont know ASE
-    match merket_name:
-        case 'NMS': merket_name = 'XNAS'
-        case 'NYQ': merket_name = 'XNYS'
-        case 'GER': merket_name = 'XETR'
-        case 'LSE': merket_name = 'XLON'
-        case 'WSE': merket_name = 'XWAR'
-        case _: merket_name = None
-    if merket_name:
-        market_id = get_id_by(session, Market, {'mic': merket_name})
+    match market_name:
+        case 'NMS': market_name = 'XNAS'
+        case 'NYQ': market_name = 'XNYS'
+        case 'GER': market_name = 'XETR'
+        case 'LSE': market_name = 'XLON'
+        case 'WSE': market_name = 'XWAR'
+        case _: market_name = None
+    if market_name:
+        market_id = get_id_by(session, Market, {'mic': market_name})
     currency_name = info.get('currency')
-    if currency_name:
-        currency_id = get_id_by(session, Gfi, {'name': currency_name})
+    currency_id = get_id_by(session, Gfi, {'name': currency_name})
+    if market_id is None:
+        print(f'--- Market - exchange: {info.get("exchange")} not found for {info["ticker_yf"]}')
+    if currency_id is None:
+        print(f'--- Currency: {info.get("currency")} not found for {info["ticker_yf"]}')
+
+    if market_id is None or currency_id is None:
+        return None
     return {
         'market_id': market_id,
         'currency_id': currency_id,
-        'quoted_unit_id': get_quoted_unit_id(session, info),
     }
 
 
@@ -395,25 +411,39 @@ def update_fundamentals(session: Session, info: dict, gfi: Gfi):
     session.flush()
 
 
-def seed_qfi(session: Session, info: dict, gfi: Gfi):
-    pass
-    # qfi: Qfi
-    # qfi = Qfi(gfi_id= gfi.id)
-    # map_dictdata_to_model(info, Qfi, MAP_DB_TO_INFO[Qfi], qfi)
-    # if info.get('quoteType') in ['EQUITY', 'ETF']:
-    #     qfi.quoted_amount = 1
-    #     qfi.quoted_unit_id = 1 # shares - based on predefined data in seed.py ? change to seek for?
+def seed_qfi(session: Session, info: dict, gfi_id: int):
+    # pass
+    qfi: Qfi
+    existing_qfi = get_by_fields(session, Qfi, {Qfi.gfi_id.key: gfi_id, Qfi.name.key: info.get('symbol')})
+    if existing_qfi:
+        qfi = existing_qfi
+    else:
+        qfi = Qfi(gfi_id= gfi_id)
+    map_dictdata_to_model(info, Qfi, MAP_DB_TO_INFO[Qfi], qfi)
+    if info.get('quoteType') in ['EQUITY', 'ETF']:
+        qfi.quoted_amount = 1
+        qfi.quoted_unit_id = 1 # shares - based on predefined data in seed.py ? change to seek for?
+    else:
+        print(f'---> Not found quoteType: {info.get("quoteType")} for {info.get("symbol")}')
+        return
     
     # qfi.source_vendor = "YF"
-    # qfi_fkeys = get_qfi_foreign_keys(session, info)
-    # set_attrs_of_obj(qfi, qfi_fkeys)
-    # session.add(qfi)
+    qfi_fkeys = get_qfi_foreign_keys(session, info)
+    if qfi_fkeys:
+        set_attrs_of_obj(qfi, qfi_fkeys)
+        session.add(qfi)
+        return qfi
+    else:
+        print(f'-------> QFI foreign keys not found for {info.get("symbol")}')
+        return None
 
 
 #───────────────────────────────────────────────────────────────────
 # Main seed function
 #───────────────────────────────────────────────────────────────────
-def seed_single(session, info: dict, types_not_found: list, info_without_name: list):
+def seed_single(session, info: dict, types_not_found: list, info_without_name: list, 
+                gfi_seeded: list = [], 
+                qfi_seeded: list = []):
     result = False
     # gfi = get_or_insert(session, Gfi, {Gfi.ticker_yf.key: info.get(MAP_DB_TO_INFO[Gfi][Gfi.ticker_yf.key].src)})
     gfi = Gfi()
@@ -428,13 +458,18 @@ def seed_single(session, info: dict, types_not_found: list, info_without_name: l
         # set_foreign_keys(Gfi, gfi)
         insert_or_update(session, Gfi, gfi, {Gfi.isin.key: gfi.isin})
         update_fundamentals(session, info, gfi)
-        seed_qfi(session, info, gfi)
-        # print(gfi)
+        gfi_seeded.append(gfi)
+        qfi = seed_qfi(session, info, gfi.id)
         result = True
+        if qfi:
+            qfi_seeded.append(qfi)
+        # else:
+        #     print(f'---> gfi created but QFI not created for {info.get("symbol")}')
+        # print(gfi)
     else:
-        print(f"GFI foreign keys not found for {info.get('ticker_yf')}")
+        # print(f"GFI foreign keys not found for {info.get('ticker_yf')}")
         if info.get('quoteType') not in types_not_found:
-            types_not_found.append(info.get('quoteType'))
+            types_not_found.append((info.get('quoteType'), info.get('ticker_yf')))
 
 
     return result
@@ -473,6 +508,26 @@ def get_info_and_additional_data() -> list[tuple[dict[str, dict], dict[str, Addi
         [info_foreign, additional_foreign]
     ]
 
+def report_input_preparing(list_of_info_and_additional_data, yf_tickers_not_found, infos_for_additional_qfi):
+    """
+    Reports the input preparing process.
+    """
+    print('-----------------------------')
+    print("Input preparing report:")
+    c = [0,0 ]
+    c_not_found = len(yf_tickers_not_found)
+    c_add_qfi = len(infos_for_additional_qfi)
+    for a, i in list_of_info_and_additional_data:
+        c[0] += len(a)
+        c[1] += len(i)
+        print(f'additional: {len(a)}, info: {len(i)}')
+    print('-----------------------------')
+    print(f'total isins: {c[0]}, total info: {c[1]}, diff: {c[0] - c[1]}')
+    print(f"  - yf_tickers_not_found    : {c_not_found}")
+    print(f"  - infos_for_additional_qfi: {c_add_qfi}")
+    print('-----------------------------')
+    
+
 def prepare_gfi_infos():
     """
     Returns 
@@ -492,7 +547,7 @@ def prepare_gfi_infos():
             info = info_dict.get(cur_yf_ticker)
             if not info:
                 # put info in not_found
-                print(f"Info not found for ticker: {cur_yf_ticker}")
+                # print(f"Info not found for ticker: {cur_yf_ticker}")
                 yf_tickers_not_found.append(cur_yf_ticker)
             else:
                 additional_info_dict = asdict(additional)
@@ -503,68 +558,80 @@ def prepare_gfi_infos():
                     isin_already_added.add(additional.isin)
                 else:
                     infos_for_additional_qfi[cur_yf_ticker] = proper_dict
-                    print(f"Ticker {cur_yf_ticker} (ISIN: {additional.isin}) already added")
+                    # print(f"Isin {additional.isin} already added, {cur_yf_ticker} moved to additional QFI")
 
+    report_input_preparing(list_of_info_and_additional_data, yf_tickers_not_found, infos_for_additional_qfi)
     return r, yf_tickers_not_found, infos_for_additional_qfi
 
 
 def report_types_not_found(types_not_found):
     print('-----------------')
     print("Types not found:")
-    for type in types_not_found:
-        print(type)
+    for type, ticker in types_not_found:
+        print(f"{type} in: {ticker}")
     print('-----------------')
 
 def report_info_not_found(infos_without_name):
     print('-----------------')
-    print("Info not found:")
+    print("Infos with no name - used yf_ticker as name:")
     for info in infos_without_name:
         print(info.get('symbol'))
     print('-----------------')
 
-def process_all_original():
-    # info_dict = get_data_from_json_file(path_to_file)
-    counter_processed, counter_skipped = 0, 0
-    processed, skipped, types_not_found, info_without_name = [], [], [], []
-    info_and_additional_data_list = get_info_and_additional_data()
-    main_infos, additional_qfi_infos = prepare_gfi_infos()
-    with Session(engine) as session:
-        for info_dict, additional_dict in info_and_additional_data_list:
-            # looping only through additional_dict
-            for additional in additional_dict.values():
-                info = info_dict.get(additional.ticker_yf)
-                if not info:
-                    # it is in skipped
-                    print(f"Info not found for {additional.ticker_yf}")
-                    info_without_name.append(additional.ticker_yf)
-                else:
-                    info.update(asdict(additional)) # adding isin, yf_symbol, bloomberg and google tickers
-                    success = seed_single(session, info, types_not_found, info_without_name)
-                    counter_processed, counter_skipped = set_counters(success, counter_processed, counter_skipped)
-                    register_seed_result(additional.ticker_yf, success, processed, skipped)
-                    report_seeding_item(additional.ticker_yf, additional, len(additional_dict), counter_processed, counter_skipped)
 
-        report_end(counter_processed, counter_skipped)
-        session.rollback() # testing phase
+def seed_vfi_for_yFinance(session, qfi: Qfi):
+    yf_vendor_id = 1 # predefined data, based on seed.py
+    yf_vendor_suffix = "_YF"
+    existing_vfi = get_by_fields(session, Vfi, {'qfi_id': qfi.id, 'vendor_id': yf_vendor_id})
+    if existing_vfi:
+        vfi = existing_vfi
+    else:
+        vfi = Vfi(qfi_id=    qfi.id, 
+                  vendor_id= yf_vendor_id)
+        session.add(vfi)
     
-    report_types_not_found(types_not_found)
-    report_info_not_found(info_without_name)
+    qfi_description = qfi.description or ""
+    set_attrs_of_obj(vfi, {
+            Vfi.vendor_ticker.key: qfi.gfi.ticker_yf,
+            Vfi.name.key:          qfi.name        + yf_vendor_suffix,
+            Vfi.description.key:   qfi_description
+        })
+    session.flush()
+    return vfi
+    
+    
 
 def process_all():
-
-    # c_processed, c_skipped = 0, 0
     processed, skipped, types_not_found, info_without_name = [], [], [], []
-    # info_and_additional_data_list = get_info_and_additional_data()
-    infos_to_gfis, yf_tickers_not_found, infos_2_additional_qfis = prepare_gfi_infos()
+    infos_to_gfis, yf_tickers_not_found, infos_to_additional_qfis = prepare_gfi_infos()
     counter = [0, 0, len(infos_to_gfis)] # processed, skipped, total
+    gfi_seeded, qfi_seeded, vfi_seeded = [], [], []
     with Session(engine) as session:
         for info in infos_to_gfis.values():
-            success = seed_single(session, info, types_not_found, info_without_name) # -> db, types_not_found, info_without_name
+            success = seed_single(session, info, types_not_found, info_without_name, gfi_seeded, qfi_seeded) # -> db, types_not_found, info_without_name
             register_seed_result(info['ticker_yf'], success, processed, skipped, counter)
             report_seeding_item(info['ticker_yf'], info, counter)
+        
 
-        report_end(counter[0], counter[1])
-        session.rollback() # testing phase
+        if infos_to_additional_qfis:
+            print("Seeding additional QFIs...")
+            c = 0
+            for info in infos_to_additional_qfis.values():
+                gfi = get_by_fields(session, Gfi, {Gfi.isin.key: info.get('isin')})
+                qfi = seed_qfi(session, info, gfi.id)
+                if qfi:
+                    qfi_seeded.append(qfi)
+                    print(f'{c}. Additional qfi {qfi.name} added for isin: {info.get("isin")}')
+                    c += 1
+                
+        # --- seeding Vfi --------------------------
+        for qfi in qfi_seeded:
+           vfi = seed_vfi_for_yFinance(session, qfi)
+           vfi_seeded.append(vfi)
+
+        report_end(counter[0], counter[1], gfi_seeded, qfi_seeded, vfi_seeded)
+        # session.rollback() # testing phase
+        session.commit() # save all changes to db
     
     report_types_not_found(types_not_found)
     report_info_not_found(info_without_name)

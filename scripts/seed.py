@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from zb_quotes.models.models import Country, Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe
+from zb_quotes.models.models import Country, Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe, Vendor
 
 
 
@@ -95,6 +95,10 @@ TimeFrame_DATA_obj = [
     Timeframe(code="1d",   seconds=86400,  is_intraday=False, is_aggregatable=False, name="Daily"),
     Timeframe(code="1w",   seconds=7*86400,is_intraday=False, is_aggregatable=False, name="Weekly"),
     Timeframe(code="1M",   seconds=None,   is_intraday=False, is_aggregatable=False, name="Monthly"),
+]
+
+Vendor_DATA_obj = [
+    Vendor(id=1, name="Yahoo Finance", description="Yahoo Finance", allowed_time_series="1m,1h,1d,1w,1M"),
 ]
 
 def read_country_data()-> list[Country]:
