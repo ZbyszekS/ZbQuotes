@@ -9,6 +9,9 @@ It will only insert rows that don't already exist.
 
 import sys
 import os
+import csv
+
+from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from dotenv import load_dotenv
@@ -16,8 +19,18 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from zb_quotes.models.models import Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe
+from zb_quotes.models.models import Country, Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe
 
+
+
+# ── Directiories        ───────────────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DATA_PROCESSED = PROJECT_ROOT / "resources" / "data" / "processed_data"
+
+print(f"SCRIPT_DIR: {SCRIPT_DIR}")
+print(f"PROJECT_ROOT: {PROJECT_ROOT}")
+print(f"DATA_PROCESSED: {DATA_PROCESSED}")
 # ── Database connection ───────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL") # e.g., "sqlite:////path/to/your/database.db" defined in .env file
 print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
@@ -71,8 +84,9 @@ QuotedUnitConversion_DATA_obj = [
 Market_DATA_obj = [
     Market(id=1, currency_id=1, mic="XWAR", name="Warsaw Stock Exchange",    description="Warsaw Stock Exchange", abbreviation="WSE"),
     Market(id=2, currency_id=2, mic="XNYS", name="New York Stock Exchange",  description="New York Stock Exchange", abbreviation="NYSE"),
-    Market(id=3, currency_id=3, mic="XETR", name="Frankfurt Stock Exchange", description="Frankfurt Stock Exchange (Xetra)", abbreviation="FSE"),
-    Market(id=4, currency_id=4, mic="XLON", name="London Stock Exchange",    description="London Stock Exchange", abbreviation="LSE"),
+    Market(id=3, currency_id=2, mic="XNAS", name="NASDAQ Stock Market",      description="NASDAQ Stock Market", abbreviation="NASDAQ"),
+    Market(id=4, currency_id=3, mic="XETR", name="Frankfurt Stock Exchange", description="Frankfurt Stock Exchange (Xetra)", abbreviation="FSE"),
+    Market(id=5, currency_id=4, mic="XLON", name="London Stock Exchange",    description="London Stock Exchange", abbreviation="LSE"),
     
 ]
 TimeFrame_DATA_obj = [
@@ -83,7 +97,29 @@ TimeFrame_DATA_obj = [
     Timeframe(code="1M",   seconds=None,   is_intraday=False, is_aggregatable=False, name="Monthly"),
 ]
 
+def read_country_data()-> list[Country]:
+    # Read country data from CSV file
+    country_data = []
+    try:
+        with open(DATA_PROCESSED / "country.csv", "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                obj = Country()
+                
+                obj.id = row['id']
+                obj.iso_code_2 = row['iso_code_2']
+                obj.name = row['name']
+                obj.description = row['description']
+                obj.region = row['region']
+                obj.subregion = row['subregion']
 
+                country_data.append(obj)
+    except:
+        print("---> !!! Error reading country data from CSV file")
+        sys.exit(1)
+    return country_data
+
+Country_DATA_obj = read_country_data()
 # ── Helper: upsert-style insert ───────────────────────────────────────────────
 
 # for data in dictionary format
@@ -139,6 +175,7 @@ def run_seed():
         seed_table_obj(session, QuotedUnitConversion_DATA_obj, "Quoted Unit Conversion")
         seed_table_obj(session, Market_DATA_obj, "Market")
         seed_table_obj(session, TimeFrame_DATA_obj, "Time Frame")
+        seed_table_obj(session, Country_DATA_obj, "Country")
 
         session.commit()
 

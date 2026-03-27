@@ -86,6 +86,7 @@ class Gfi(Base):
     sector_id:   Mapped[int | None] = mapped_column(ForeignKey('sector.id'))
     industry_id: Mapped[int | None] = mapped_column(ForeignKey('industry.id'))
     country_id:  Mapped[int | None] = mapped_column(ForeignKey('country.id'))
+    
     isin:        Mapped[str | None] = mapped_column(String(12))
     name:        Mapped[str]        = mapped_column(String(45))
     description: Mapped[str | None] = mapped_column(String(255))
@@ -93,7 +94,6 @@ class Gfi(Base):
     ticker_bl:   Mapped[str | None] = mapped_column(String(45))
     ticker_yf:   Mapped[str | None] = mapped_column(String(45))
     
-
 
     # child of
     fit:      Mapped["Fit"]      = relationship(back_populates='gfis')

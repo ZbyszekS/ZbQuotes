@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: ad914f56ade5
+Revision ID: 8a3ae9cd5d1e
 Revises: 
-Create Date: 2026-03-21 15:42:08.718986
+Create Date: 2026-03-26 20:39:15.175456
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ad914f56ade5'
+revision: str = '8a3ae9cd5d1e'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -127,10 +127,15 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('gfi_id', sa.Integer(), nullable=False),
     sa.Column('shares_outstanding', sa.Integer(), nullable=True),
-    sa.Column('float_shares', sa.Integer(), nullable=True),
-    sa.Column('pe_ratio', sa.Numeric(precision=10, scale=4), nullable=True),
+    sa.Column('last_price', sa.Numeric(precision=18, scale=4), nullable=True),
+    sa.Column('market_cap', sa.Numeric(precision=18, scale=4), nullable=True),
+    sa.Column('pe', sa.Numeric(precision=10, scale=4), nullable=True),
+    sa.Column('pe_forward', sa.Numeric(precision=10, scale=4), nullable=True),
     sa.Column('eps', sa.Numeric(precision=10, scale=4), nullable=True),
+    sa.Column('eps_forward', sa.Numeric(precision=10, scale=4), nullable=True),
     sa.Column('book_value_per_share', sa.Numeric(precision=10, scale=4), nullable=True),
+    sa.Column('p_bv', sa.Numeric(precision=10, scale=4), nullable=True),
+    sa.Column('total_revenue', sa.Numeric(precision=18, scale=4), nullable=True),
     sa.Column('beta', sa.Numeric(precision=8, scale=4), nullable=True),
     sa.Column('dividend_yield', sa.Numeric(precision=8, scale=6), nullable=True),
     sa.Column('last_dividend_amount', sa.Numeric(precision=10, scale=4), nullable=True),
