@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from zb_quotes.models.models import Country, Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe, Vendor
+from zb_quotes.models.models import Country, Fit, Gfi, CurrencyDetails, Market, QuotedUnit, QuotedUnitConversion, Timeframe, Vendor, Qfi, Vfi
 
 
 
@@ -87,18 +87,40 @@ Market_DATA_obj = [
     Market(id=3, currency_id=2, mic="XNAS", name="NASDAQ Stock Market",      description="NASDAQ Stock Market", abbreviation="NASDAQ"),
     Market(id=4, currency_id=3, mic="XETR", name="Frankfurt Stock Exchange", description="Frankfurt Stock Exchange (Xetra)", abbreviation="FSE"),
     Market(id=5, currency_id=4, mic="XLON", name="London Stock Exchange",    description="London Stock Exchange", abbreviation="LSE"),
+    Market(id=6, currency_id=4, mic="XAMS", name="Amsterdam Stock Exchange", description="Amsterdam Stock Exchange", abbreviation="ASE"),
+    Market(id=7, currency_id=4, mic="XBRU", name="Brussels Stock Exchange",  description="Brussels Stock Exchange", abbreviation="BSE"),
+    Market(id=8, currency_id=4, mic="XMAD", name="Madrid Stock Exchange",    description="Madrid Stock Exchange", abbreviation="MSE"),
+    Market(id=9, currency_id=4, mic="XPAR", name="Paris Stock Exchange",     description="Paris Stock Exchange", abbreviation="PAR"),
+    Market(id=10,currency_id=2, mic="FX",   name="Foreign Exchange (OTC)",   description="FOREX - Foreign Exchange (OTC)", abbreviation="FX"),
+
+    
     
 ]
 TimeFrame_DATA_obj = [
-    Timeframe(code="1m",   seconds=60,     is_intraday=True,  is_aggregatable=True,  name="1 Minute"),
-    Timeframe(code="1h",   seconds=3600,   is_intraday=True,  is_aggregatable=True,  name="1 Hour"),
-    Timeframe(code="1d",   seconds=86400,  is_intraday=False, is_aggregatable=False, name="Daily"),
-    Timeframe(code="1w",   seconds=7*86400,is_intraday=False, is_aggregatable=False, name="Weekly"),
-    Timeframe(code="1M",   seconds=None,   is_intraday=False, is_aggregatable=False, name="Monthly"),
+    Timeframe(id=1, code="1m",   seconds=60,     is_intraday=True,  is_aggregatable=True,  name="1 Minute"),
+    Timeframe(id=2, code="1h",   seconds=3600,   is_intraday=True,  is_aggregatable=True,  name="1 Hour"),
+    Timeframe(id=3, code="1d",   seconds=86400,  is_intraday=False, is_aggregatable=False, name="Daily"),
+    Timeframe(id=4, code="1w",   seconds=7*86400,is_intraday=False, is_aggregatable=False, name="Weekly"),
+    Timeframe(id=5, code="1M",   seconds=None,   is_intraday=False, is_aggregatable=False, name="Monthly"),
 ]
 
 Vendor_DATA_obj = [
     Vendor(id=1, name="Yahoo Finance", description="Yahoo Finance", allowed_time_series="1m,1h,1d,1w,1M"),
+]
+
+Qfi_DATA_obj = [
+    Qfi(id = 1, gfi_id=3, market_id=10, currency_id=2, quoted_unit_id=1,
+        name="EUR/USD", description="EUR/USD - Euro to US Dollar", quoted_amount=1),
+    Qfi(id = 2, gfi_id=2, market_id=10, currency_id=1, quoted_unit_id=1,
+        name="USD/PLN", description="USD/PLN - US Dollar to Polish Zloty", quoted_amount=1),
+    Qfi(id = 3, gfi_id=3, market_id=10, currency_id=1, quoted_unit_id=1,
+        name="EUR/PLN", description="EUR/PLN - Euro to Polish Zloty", quoted_amount=1),
+]
+
+Vfi_DATA_obj = [
+    Vfi(id=1, qfi_id=1, vendor_id=1, vendor_ticker="EURUSD=X", name="EURUSD - Yahoo Finance", description="FOREX EURUSD from Yahoo Finance"),
+    Vfi(id=2, qfi_id=2, vendor_id=1, vendor_ticker="USDPLN=X", name="USDPLN - Yahoo Finance", description="FOREX USDPLN from Yahoo Finance"),
+    Vfi(id=3, qfi_id=3, vendor_id=1, vendor_ticker="EURPLN=X", name="EURPLN - Yahoo Finance", description="FOREX EURPLN from Yahoo Finance"),
 ]
 
 def read_country_data()-> list[Country]:
@@ -180,6 +202,9 @@ def run_seed():
         seed_table_obj(session, Market_DATA_obj, "Market")
         seed_table_obj(session, TimeFrame_DATA_obj, "Time Frame")
         seed_table_obj(session, Country_DATA_obj, "Country")
+        seed_table_obj(session, Vendor_DATA_obj, "Vendor")
+        seed_table_obj(session, Qfi_DATA_obj, "Qfi")
+        seed_table_obj(session, Vfi_DATA_obj, "Vfi")
 
         session.commit()
 

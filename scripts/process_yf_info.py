@@ -5,6 +5,7 @@ import json
 import csv
 import logging
 import datetime as dt
+import re
 from typing import Any, Type, TypeVar
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -14,7 +15,7 @@ from sqlalchemy.inspection import inspect
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from zb_quotes.models.models import Base, Fit, Gfi, GfiFundamentals, Sector, Industry, Country, Qfi, Market, Vendor, Vfi
+from zb_quotes.models.models import Base, Fit, Gfi, GfiFundamentals, Sector, Industry, Country, Qfi, Market, Vendor, Vfi, Timeframe, VfiTimeSeries
 ModelType = TypeVar("ModelType", bound=Base) # Type variable for SQLAlchemy models
 
 # ── Logger creation ───────────────────────────────────────────────────────
@@ -47,6 +48,92 @@ class AdditionalInfo:
     ticker_yf: str
     ticker_bl: str | None = None
     ticker_go: str | None = None
+
+
+
+
+# ────── Mapping info to db configuration ─────────────────────────────────────────────────────
+@dataclass
+class Info2DbVal:
+    src:       str
+    transform: callable = None
+    cast:      callable = None # e.g., int, float, str / Concern future use
+    
+def ts_to_date(ts):
+    return dt.date.fromtimestamp(ts) if ts else None
+
+def get_clean_name(name):   
+    if name:
+        # Collapse multiple spaces
+        name = ' '.join(name.split())
+        # Remove trailing single letter if it looks like an artifact
+        if re.search(r'\s+[A-Z]$', name):
+            name = re.sub(r'\s+[A-Z]$', '', name)
+    
+    return name
+
+def get_gfi_names_from_db():
+    with Session(engine) as session:
+        stmt = select(Gfi.name)
+        gfi_names = session.execute(stmt).scalars().all()
+    return list(gfi_names)
+
+GFI_NAMES_SET = set(get_gfi_names_from_db())
+
+def assure_unique_gfi_name(name: str, info: dict, gfi_with_changed_name: list) -> str:
+    c = 0
+    is_unique = False
+    orig_name = name
+    while not is_unique:
+        if name in GFI_NAMES_SET: # modify name to make it unique
+            if c == 0:
+                suffix = info.get('isin', '') + ' ' + info.get('ticker_yf', '')
+                name = name[:45-len(suffix)] + ' ' + suffix
+            else:
+                additiona_suffix = f"-({c})"
+                name = name[:45-len(additiona_suffix)] + additiona_suffix
+            c += 1
+        else:
+            is_unique = True
+    GFI_NAMES_SET.add(name)
+    if c > 0:
+        gfi_with_changed_name.append(f"{orig_name} -> {name}")
+    return name
+   
+MAP_DB_TO_INFO = {
+    Gfi: {
+        Gfi.name.key:        Info2DbVal('shortName', transform=get_clean_name),
+        Gfi.description.key: Info2DbVal('longName'),
+        Gfi.isin.key:        Info2DbVal('isin'),
+        Gfi.ticker_yf.key:   Info2DbVal('ticker_yf'),
+        Gfi.ticker_bl.key:   Info2DbVal('ticker_bl'),
+        Gfi.ticker_go.key:   Info2DbVal('ticker_go'),
+    },
+    GfiFundamentals: {
+        GfiFundamentals.shares_outstanding.key:   Info2DbVal('sharesOutstanding'),
+        GfiFundamentals.last_price.key:           Info2DbVal('currentPrice', cast=Decimal),
+        GfiFundamentals.market_cap.key:           Info2DbVal('marketCap',    cast=Decimal),
+
+        GfiFundamentals.pe.key:                   Info2DbVal('trailingPE', cast=Decimal),
+        GfiFundamentals.pe_forward.key:           Info2DbVal('forwardPE', cast=Decimal),
+        GfiFundamentals.eps.key:                  Info2DbVal('trailingEps', cast=Decimal),
+        GfiFundamentals.eps_forward.key:          Info2DbVal('forwardEps', cast=Decimal),
+        GfiFundamentals.book_value_per_share.key: Info2DbVal('bookValue', cast=Decimal),
+        GfiFundamentals.p_bv.key:                 Info2DbVal('priceToBook', cast=Decimal),
+        GfiFundamentals.total_revenue.key:        Info2DbVal('totalRevenue', cast=Decimal),
+        GfiFundamentals.beta.key:                 Info2DbVal('beta', cast=Decimal),
+
+        GfiFundamentals.dividend_yield.key:       Info2DbVal('dividendYield', cast=Decimal),
+        GfiFundamentals.last_dividend_amount.key: Info2DbVal('lastDividendValue', cast=Decimal),
+        GfiFundamentals.last_dividend_date.key:   Info2DbVal('lastDividendDate', transform=ts_to_date),
+        GfiFundamentals.week_52_high.key:         Info2DbVal('fiftyTwoWeekHigh', cast=Decimal),
+        GfiFundamentals.week_52_low.key:          Info2DbVal('fiftyTwoWeekLow', cast=Decimal),
+    },
+    Qfi: {
+        Qfi.name.key:          Info2DbVal('symbol'),           # or longName
+        Qfi.description.key:   Info2DbVal('longName'), # rich description
+    },
+}
 
 
 def get_additional_data_for_foreign() -> dict | None:
@@ -103,35 +190,14 @@ def get_data_from_json_file(path_to_file: Path) -> dict:
 
 
 
-
-# def get_or_create(session: Session, model: ModelType, name: str | None):
-#     if not name:
-#         return None
-
-#     obj = session.execute(
-#         select(model).where(model.name == name)
-#     ).scalar_one_or_none()
-
-#     if obj:
-#         return obj.id
-
-#     obj = model(name=name)
-#     session.add(obj)
-#     session.flush()
-
-#     return obj.id
-
-
-
-
-
-def report_end(counter_processed: int, counter_skipped: int, gfi_seeded: list, qfi_seeded: list, vfi_seeded: list):
+def report_end(counter_processed: int, counter_skipped: int, gfi_seeded: list, qfi_seeded: list, vfi_seeded: list, vfi_ts_seeded: list):
     print("--------------------------------")
     print(f"Processed: {counter_processed}")
     print(f"Skipped:   {counter_skipped}")
     print(f"GFI seeded: {len(gfi_seeded)}")
     print(f"QFI seeded: {len(qfi_seeded)}")
     print(f"VFI seeded: {len(vfi_seeded)}")
+    print(f"VFI TS seeded: {len(vfi_ts_seeded)}")
     print("--------------------------------")
 
 def report_init(fPath: Path, dict_data: dict):
@@ -160,91 +226,6 @@ def set_counters(success: bool, counter_processed: int, counter_skipped: int):
     else:
         counter_skipped += 1
     return counter_processed, counter_skipped
-
-
-
-# # main seeding function ---------------------------------------------------------
-# def process_info(info_dict: dict) -> bool:
-#     # country_id = get_or_create_country(additional_info.isin)
-#     return True
-
-
-# -------------------------------- Mapping Configuration --------------------------------
-@dataclass
-class Info2DbVal:
-    # db_column: str
-    src: str
-    transform: callable = None
-    cast: callable = None # e.g., int, float, str / Concern future use
-    
-def ts_to_date(ts):
-    return dt.date.fromtimestamp(ts) if ts else None
-    # return dt.datetime.utcfromtimestamp(ts).date() if ts else None    
-    
-MAP_DB_TO_INFO = {
-    Gfi: {
-        Gfi.name.key:        Info2DbVal('shortName'),
-        Gfi.description.key: Info2DbVal('longName'),
-        Gfi.isin.key:        Info2DbVal('isin'),
-        Gfi.ticker_yf.key:   Info2DbVal('ticker_yf'),
-        Gfi.ticker_bl.key:   Info2DbVal('ticker_bl'),
-        Gfi.ticker_go.key:   Info2DbVal('ticker_go'),
-    },
-    GfiFundamentals: {
-        GfiFundamentals.shares_outstanding.key:   Info2DbVal('sharesOutstanding'),
-        GfiFundamentals.last_price.key:           Info2DbVal('currentPrice', cast=Decimal),
-        GfiFundamentals.market_cap.key:           Info2DbVal('marketCap', cast=Decimal),
-
-        GfiFundamentals.pe.key:                   Info2DbVal('trailingPE', cast=Decimal),
-        GfiFundamentals.pe_forward.key:           Info2DbVal('forwardPE', cast=Decimal),
-        GfiFundamentals.eps.key:                  Info2DbVal('trailingEps', cast=Decimal),
-        GfiFundamentals.eps_forward.key:          Info2DbVal('forwardEps', cast=Decimal),
-        GfiFundamentals.book_value_per_share.key: Info2DbVal('bookValue', cast=Decimal),
-        GfiFundamentals.p_bv.key:                 Info2DbVal('priceToBook', cast=Decimal),
-        GfiFundamentals.total_revenue.key:        Info2DbVal('totalRevenue', cast=Decimal),
-        GfiFundamentals.beta.key:                 Info2DbVal('beta', cast=Decimal),
-
-        GfiFundamentals.dividend_yield.key:       Info2DbVal('dividendYield', cast=Decimal),
-        GfiFundamentals.last_dividend_amount.key: Info2DbVal('lastDividendValue', cast=Decimal),
-        GfiFundamentals.last_dividend_date.key:   Info2DbVal('lastDividendDate', transform=ts_to_date),
-        GfiFundamentals.week_52_high.key:         Info2DbVal('fiftyTwoWeekHigh', cast=Decimal),
-        GfiFundamentals.week_52_low.key:          Info2DbVal('fiftyTwoWeekLow', cast=Decimal),
-    },
-    # ── New: Qfi mapping ─────────────────────────────────────────────────────
-    Qfi: {
-        Qfi.name.key:          Info2DbVal('symbol'),           # or longName
-        Qfi.description.key:   Info2DbVal('longName'), # rich description
-
-        # Core identification fields
-        # Qfi.gfi_id.key:        None,   # will be set manually (link to parent Gfi)
-        # Qfi.market_id.key:     None,   # will be resolved via Market model (see below)
-        # Qfi.currency_id.key:   None,   # will be resolved via Currency Gfi (PLN, USD...)
-        # Qfi.quoted_unit_id.key:None,   # usually "Shares" for equities → resolve via QuotedUnit
-
-        # Important yf fields for Qfi
-        # Qfi.quoted_amount.key: Info2DbVal('quoteType', 
-        #     transform=lambda x: 1 if x == "EQUITY" else None),  # example: 1 share unit
-
-        # Optional but useful
-        # You can add a custom column later if you want to store raw quoteType
-    },
-}
-
-# MAP_FOREIGN_KEYS = {
-#     Gfi: {
-#         Gfi.fit_id.key:      Info2DbVal('fit_id'),
-#         Gfi.sector_id.key:   Info2DbVal('sector_id'),
-#         Gfi.industry_id.key: Info2DbVal('industry_id'),
-#         Gfi.country_id.key:  Info2DbVal('country_id'),
-#     }
-# }
-
-# @dataclass
-# class GfiForeignKeys:
-#     fit_id:      int
-#     sector_id:   int
-#     industry_id: int
-#     country_id:  int
 
 
 
@@ -412,7 +393,6 @@ def update_fundamentals(session: Session, info: dict, gfi: Gfi):
 
 
 def seed_qfi(session: Session, info: dict, gfi_id: int):
-    # pass
     qfi: Qfi
     existing_qfi = get_by_fields(session, Qfi, {Qfi.gfi_id.key: gfi_id, Qfi.name.key: info.get('symbol')})
     if existing_qfi:
@@ -438,36 +418,38 @@ def seed_qfi(session: Session, info: dict, gfi_id: int):
         return None
 
 
-#───────────────────────────────────────────────────────────────────
-# Main seed function
-#───────────────────────────────────────────────────────────────────
-def seed_single(session, info: dict, types_not_found: list, info_without_name: list, 
-                gfi_seeded: list = [], 
-                qfi_seeded: list = []):
-    result = False
-    # gfi = get_or_insert(session, Gfi, {Gfi.ticker_yf.key: info.get(MAP_DB_TO_INFO[Gfi][Gfi.ticker_yf.key].src)})
+def seed_gfi(session: Session, info: dict, info_without_name: list, gfi_with_changed_name: list):
     gfi = Gfi()
     map_dictdata_to_model(info, Gfi, MAP_DB_TO_INFO[Gfi], gfi) # keeps added records (Sector, Industry) in session
     if gfi.name is None:
         gfi.name = info.get('longName') or info.get('shortName') or info.get('symbol')
-        # info_without_name.append(info.get('symbol'))
-        info_without_name.append(info)
+        info_without_name.append(info) # for diagnostic info_without_name.append(info.get('symbol'))
+    gfi.name = assure_unique_gfi_name(gfi.name, info, gfi_with_changed_name)
     gfi_fkeys = get_gfi_foreign_keys(session, info)
     if gfi_fkeys:
         set_attrs_of_obj(gfi, gfi_fkeys)
-        # set_foreign_keys(Gfi, gfi)
         insert_or_update(session, Gfi, gfi, {Gfi.isin.key: gfi.isin})
         update_fundamentals(session, info, gfi)
-        gfi_seeded.append(gfi)
+        return gfi
+    else:
+        return None
+
+#───────────────────────────────────────────────────────────────────
+# Main seed function
+#───────────────────────────────────────────────────────────────────
+def seed_single_gfi_qfi(session, info: dict, types_not_found: list, info_without_name: list, 
+                gfi_seeded: list = [], 
+                qfi_seeded: list = [],
+                gfi_with_changed_name: list = []):
+    result = False
+    gfi = seed_gfi(session, info, info_without_name, gfi_with_changed_name)
+    gfi_seeded.append(gfi)
+    if gfi:
         qfi = seed_qfi(session, info, gfi.id)
-        result = True
         if qfi:
             qfi_seeded.append(qfi)
-        # else:
-        #     print(f'---> gfi created but QFI not created for {info.get("symbol")}')
-        # print(gfi)
-    else:
-        # print(f"GFI foreign keys not found for {info.get('ticker_yf')}")
+            result = True
+    else: # for future diagnostics
         if info.get('quoteType') not in types_not_found:
             types_not_found.append((info.get('quoteType'), info.get('ticker_yf')))
 
@@ -578,6 +560,13 @@ def report_info_not_found(infos_without_name):
         print(info.get('symbol'))
     print('-----------------')
 
+def report_gfi_with_changed_name(gfi_with_changed_name):
+    print('-----------------')
+    print("GFI names with changed name:")
+    for gfi  in gfi_with_changed_name:
+        print(gfi)
+    print('-----------------')
+
 
 def seed_vfi_for_yFinance(session, qfi: Qfi):
     yf_vendor_id = 1 # predefined data, based on seed.py
@@ -599,43 +588,64 @@ def seed_vfi_for_yFinance(session, qfi: Qfi):
     session.flush()
     return vfi
     
-    
+
+def seed_additional_qfis(session, infos_to_additional_qfis, qfi_seeded):
+    print("Seeding additional QFIs...")
+    c = 0
+    for info in infos_to_additional_qfis.values():
+        gfi = get_by_fields(session, Gfi, {Gfi.isin.key: info.get('isin')})
+        qfi = seed_qfi(session, info, gfi.id)
+        if qfi:
+            qfi_seeded.append(qfi)
+            print(f'{c}. Additional qfi {qfi.name} added for isin: {info.get("isin")}')
+            c += 1
+
+def seed_vfis(session, qfi_seeded, vfi_seeded):
+    for qfi in qfi_seeded:
+        vfi = seed_vfi_for_yFinance(session, qfi)
+        vfi_seeded.append(vfi)
+
+def get_time_frames_from_db(session):
+    stmt = select(Timeframe)
+    return session.execute(stmt).scalars().all()
+
+def seed_vfi_ts(session, vfi_seeded, vfi_ts_seeded):
+    time_frames = get_time_frames_from_db(session)
+    for vfi in vfi_seeded:
+        for time_frame in time_frames:
+            vfi_ts = VfiTimeSeries(vfi_id=vfi.id, timeframe_id=time_frame.id)
+            session.add(vfi_ts)
+            vfi_ts_seeded.append(vfi_ts)
+    session.flush()
 
 def process_all():
     processed, skipped, types_not_found, info_without_name = [], [], [], []
     infos_to_gfis, yf_tickers_not_found, infos_to_additional_qfis = prepare_gfi_infos()
     counter = [0, 0, len(infos_to_gfis)] # processed, skipped, total
-    gfi_seeded, qfi_seeded, vfi_seeded = [], [], []
+    gfi_seeded, qfi_seeded, vfi_seeded, vfi_ts_seeded = [], [], [], []
+    gfi_with_changed_name = []
     with Session(engine) as session:
         for info in infos_to_gfis.values():
-            success = seed_single(session, info, types_not_found, info_without_name, gfi_seeded, qfi_seeded) # -> db, types_not_found, info_without_name
+            success = seed_single_gfi_qfi(session, info, types_not_found, info_without_name, gfi_seeded, qfi_seeded, gfi_with_changed_name) # -> db, types_not_found, info_without_name
             register_seed_result(info['ticker_yf'], success, processed, skipped, counter)
             report_seeding_item(info['ticker_yf'], info, counter)
         
 
         if infos_to_additional_qfis:
-            print("Seeding additional QFIs...")
-            c = 0
-            for info in infos_to_additional_qfis.values():
-                gfi = get_by_fields(session, Gfi, {Gfi.isin.key: info.get('isin')})
-                qfi = seed_qfi(session, info, gfi.id)
-                if qfi:
-                    qfi_seeded.append(qfi)
-                    print(f'{c}. Additional qfi {qfi.name} added for isin: {info.get("isin")}')
-                    c += 1
+            seed_additional_qfis(session, infos_to_additional_qfis, qfi_seeded)
                 
-        # --- seeding Vfi --------------------------
-        for qfi in qfi_seeded:
-           vfi = seed_vfi_for_yFinance(session, qfi)
-           vfi_seeded.append(vfi)
+        seed_vfis(session, qfi_seeded, vfi_seeded)
+                
+        seed_vfi_ts(session, vfi_seeded, vfi_ts_seeded)
 
-        report_end(counter[0], counter[1], gfi_seeded, qfi_seeded, vfi_seeded)
+        
         # session.rollback() # testing phase
         session.commit() # save all changes to db
     
     report_types_not_found(types_not_found)
     report_info_not_found(info_without_name)
-            
+    report_gfi_with_changed_name(gfi_with_changed_name)
+    report_end(counter[0], counter[1], gfi_seeded, qfi_seeded, vfi_seeded, vfi_ts_seeded)    
 
 def main():
     # process_yf_info_json_file(FOREIGN_INFO_PATH)

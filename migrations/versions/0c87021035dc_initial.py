@@ -1,8 +1,8 @@
 """initial
 
-Revision ID: 24cdea75d4ee
+Revision ID: 0c87021035dc
 Revises: 
-Create Date: 2026-03-27 18:50:56.643647
+Create Date: 2026-03-28 16:07:23.959413
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '24cdea75d4ee'
+revision: str = '0c87021035dc'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -103,7 +103,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['fit_id'], ['fit.id'], name=op.f('fk_gfi_fit_id_fit')),
     sa.ForeignKeyConstraint(['industry_id'], ['industry.id'], name=op.f('fk_gfi_industry_id_industry')),
     sa.ForeignKeyConstraint(['sector_id'], ['sector.id'], name=op.f('fk_gfi_sector_id_sector')),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_gfi'))
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_gfi')),
+    sa.UniqueConstraint('name', name=op.f('uq_gfi_name'))
     )
     op.create_table('currency_details',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -181,7 +182,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['gfi_id'], ['gfi.id'], name=op.f('fk_qfi_gfi_id_gfi')),
     sa.ForeignKeyConstraint(['market_id'], ['market.id'], name=op.f('fk_qfi_market_id_market')),
     sa.ForeignKeyConstraint(['quoted_unit_id'], ['quoted_unit.id'], name=op.f('fk_qfi_quoted_unit_id_quoted_unit')),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_qfi'))
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_qfi')),
+    sa.UniqueConstraint('name', name=op.f('uq_qfi_name'))
     )
     op.create_table('pips',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -201,7 +203,8 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=225), nullable=True),
     sa.ForeignKeyConstraint(['qfi_id'], ['qfi.id'], name=op.f('fk_vfi_qfi_id_qfi')),
     sa.ForeignKeyConstraint(['vendor_id'], ['vendor.id'], name=op.f('fk_vfi_vendor_id_vendor')),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_vfi'))
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_vfi')),
+    sa.UniqueConstraint('name', name=op.f('uq_vfi_name'))
     )
     op.create_table('vfi_time_series',
     sa.Column('id', sa.Integer(), nullable=False),

@@ -95,7 +95,7 @@ class Gfi(Base):
     country_id:  Mapped[int | None] = mapped_column(ForeignKey('country.id'))
 
     isin:        Mapped[str | None] = mapped_column(String(12))
-    name:        Mapped[str]        = mapped_column(String(45))
+    name:        Mapped[str]        = mapped_column(String(45), unique=True)
     description: Mapped[str | None] = mapped_column(String(255))
     ticker_go:   Mapped[str | None] = mapped_column(String(45))
     ticker_bl:   Mapped[str | None] = mapped_column(String(45))
@@ -286,7 +286,7 @@ class Qfi(Base):
     currency_id:         Mapped[int] = mapped_column(ForeignKey('gfi.id'))
     quoted_unit_id:      Mapped[int] = mapped_column(ForeignKey('quoted_unit.id'))
 
-    name:                Mapped[str]        = mapped_column(String(45))
+    name:                Mapped[str]        = mapped_column(String(45), unique=True)
     description:         Mapped[str | None] = mapped_column(String(225))
     quoted_amount:       Mapped[int]        = mapped_column()                       # amount of unit being quoted
     
@@ -347,7 +347,7 @@ class Vfi(Base):
     qfi_id:        Mapped[int]        = mapped_column(ForeignKey('qfi.id'))
     vendor_id:     Mapped[int]        = mapped_column(ForeignKey('vendor.id'))
     vendor_ticker: Mapped[str]        = mapped_column(String(45)) # ticker symbol
-    name:          Mapped[str]        = mapped_column(String(45))
+    name:          Mapped[str]        = mapped_column(String(45), unique=True)
     description:   Mapped[str | None] = mapped_column(String(225))
 
     # child of ------------------------------------------------------
@@ -393,13 +393,13 @@ class VfiTimeSeries(Base):
     timeframe_id: Mapped[int] = mapped_column(ForeignKey('timeframe.id'))
     
     # import control
-    enabled:      Mapped[bool]       = mapped_column(Boolean, default=True)
+    enabled:      Mapped[bool]       = mapped_column(Boolean, default=False)
     history_days: Mapped[int | None] = mapped_column()   # how far back to fetch
 
     # import state tracking
     last_imported_at:  Mapped[datetime | None] = mapped_column(DateTime)
-    last_imported_from:Mapped[date | None]     = mapped_column(Date)
-    last_imported_to:  Mapped[date | None]     = mapped_column(Date)
+    last_imported_from:Mapped[date     | None] = mapped_column(Date)
+    last_imported_to:  Mapped[date     | None] = mapped_column(Date)
 
     __table_args__ = (
         UniqueConstraint('vfi_id', 'timeframe_id'),
