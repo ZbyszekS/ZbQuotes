@@ -1,0 +1,6 @@
+2026-04-03 17:27:29 - quote_importer - INFO - Starting import of all quotes
+2026-04-03 17:27:29 - quote_importer - INFO - - Importing 3 time series
+2026-04-03 17:27:29 - quote_importer - INFO - - Time series to be imported: ['KGH.WA_1d', 'PKN.WA_1d', 'TPE.WA_1d']
+2026-04-03 17:27:30 - quote_importer - INFO - - Downloaded 17542 quotes, 42 dividends, 0 splits for 3 time series
+2026-04-03 17:27:30 - quote_importer - INFO - - Writing 17542 quotes, 42 dividends, 0 splits to db
+2026-04-03 17:27:33 - quote_importer - INFO - - Written to database

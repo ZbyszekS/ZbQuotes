@@ -2,7 +2,7 @@
 jupyter_notebooks/
 extract_mbank_pdf/
 zapas/
-import_data/
+#import_data/
 # --- Specyfic environment ---
 .env
 

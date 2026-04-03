@@ -1,0 +1,6 @@
+2026-04-03 15:49:10 - quote_importer - INFO - Starting import of all quotes
+2026-04-03 15:49:17 - quote_importer - INFO - - Importing 1 time series
+2026-04-03 15:49:20 - quote_importer - INFO - - Time series to be imported: ['PGE.WA']
+2026-04-03 15:49:41 - quote_importer - INFO - - Downloaded 4179 quotes, 7 dividends, 0 splits for 1 time series
+2026-04-03 15:49:52 - quote_importer - INFO - - Writing 4179 quotes, 7 dividends, 0 splits to db
+2026-04-03 15:50:36 - quote_importer - INFO - - Written to database

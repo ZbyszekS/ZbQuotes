@@ -7,8 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from config import *
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+IMPORT_LOGGER = logging.getLogger(__name__)
 
 load_dotenv()  # reads .env file
 
@@ -25,7 +24,7 @@ load_dotenv()  # reads .env file
 # local_database_url = "sqlite:////mnt/WDB-500-ntfs/Users/zbysz/Moje dokumenty/moje-dokumenty-overt/zawodowe/programowanie/databases/SQLite/PORTFOLIO_0_1_0/port_0_1_0.sqlite3"
 # ── Database connection ───────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL") # e.g., "sqlite:////path/to/your/database.db" defined in .env file
-logger.info(f"Using DATABASE_URL: {DATABASE_URL}")
+LOGGER.info(f"Using DATABASE_URL: {DATABASE_URL}")
 engine = create_engine(DATABASE_URL, echo=False)
 # local_database_url = f"sqlite:///{SQLITE_DB_DIRECTORY}/{SQLITE_DB_FILENAME}"
 # DATABASE_URL = os.getenv("DATABASE_URL", local_database_url) # left for reference, but not used

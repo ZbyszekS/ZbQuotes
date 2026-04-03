@@ -27,6 +27,7 @@ class Fit(Base):
     # parent to
     gfis: Mapped[list["Gfi"]] = relationship(back_populates='fit')
 
+
     def __repr__(self):
         return f"<Fit(id={self.id}, name='{self.name}')>"
 
@@ -174,6 +175,11 @@ class Split(Base):
     gfi_id:      Mapped[int]      = mapped_column(ForeignKey('gfi.id'))
     split_date:  Mapped[datetime] = mapped_column(DateTime)
     ratio:       Mapped[Decimal]  = mapped_column(Numeric(10, 4, asdecimal=True))
+    
+
+    __table_args__ = (
+        UniqueConstraint('gfi_id', 'split_date', 'ratio', name='uq_split_entry'),
+    )
 
     # child of
     gfi: Mapped["Gfi"] = relationship(back_populates='splits')
@@ -209,6 +215,11 @@ class Dividend(Base):
     currency_id:   Mapped[int]      = mapped_column(ForeignKey('gfi.id'))
     dividend_date: Mapped[datetime] = mapped_column(DateTime)
     amount:        Mapped[Decimal]  = mapped_column(Numeric(10, 4, asdecimal=True))
+
+
+    __table_args__ = (
+        UniqueConstraint('gfi_id', 'dividend_date', 'amount', name='uq_dividend_entry'),
+    )
 
     # child of ------------------------------------------------------
     gfi:      Mapped["Gfi"] = relationship(back_populates='dividends', foreign_keys=[gfi_id])
@@ -394,7 +405,7 @@ class VfiTimeSeries(Base):
     
     # import control
     enabled:      Mapped[bool]       = mapped_column(Boolean, default=False)
-    history_days: Mapped[int | None] = mapped_column()   # how far back to fetch
+    history_days: Mapped[int | None] = mapped_column()   # None means all history to be kept
 
     # import state tracking
     last_imported_at:  Mapped[datetime | None] = mapped_column(DateTime)
@@ -416,17 +427,20 @@ class VfiTimeSeries(Base):
     quote_1weeks:   Mapped[list["Quote_1week"]]  = relationship(back_populates='vfi_time_series')
     quote_1months:  Mapped[list["Quote_1month"]] = relationship(back_populates='vfi_time_series')
 
-
+    def __repr__(self) -> str:
+        # return f"VfiTimeSeries(id=kicha"
+        return f"VfiTimeSeries(id={self.id}"
 
 # --- Mixins for cleaner code ---
 class QuoteMixin:
     """Standard columns for all quote tables"""
-    id:        Mapped[int]        = mapped_column(primary_key=True)
-    open:      Mapped[float]      = mapped_column(Numeric(18, 8))
-    high:      Mapped[float]      = mapped_column(Numeric(18, 8))
-    low:       Mapped[float]      = mapped_column(Numeric(18, 8))
-    close:     Mapped[float]      = mapped_column(Numeric(18, 8))
-    volume:    Mapped[int | None] = mapped_column()
+    id:        Mapped[int]          = mapped_column(primary_key=True)
+    open:      Mapped[float]        = mapped_column(Numeric(18, 8))
+    high:      Mapped[float]        = mapped_column(Numeric(18, 8))
+    low:       Mapped[float]        = mapped_column(Numeric(18, 8))
+    close:     Mapped[float]        = mapped_column(Numeric(18, 8))
+    adj_close: Mapped[float | None] = mapped_column(Numeric(18, 8))
+    volume:    Mapped[int | None]   = mapped_column()
     
     @classmethod
     def __declare_last__(cls):
@@ -441,8 +455,11 @@ class Quote_1min(Base, QuoteMixin):
     __tablename__ = 'quote_1min'
 
     timestamp: Mapped[DateTime] = mapped_column(DateTime, index=True)
-    # vfi_id:    Mapped[int]      = mapped_column(ForeignKey('vfi.id'))
     vfi_time_series_id: Mapped[int] = mapped_column(ForeignKey('vfi_time_series.id'))
+
+    __table_args__ = (
+        UniqueConstraint('vfi_time_series_id', 'timestamp', name='uq_quote_1min_vfi_ts_timestamp'),
+    )
     
     # child of ------------------------------------------------------
     vfi_time_series: Mapped["VfiTimeSeries"] = relationship(back_populates='quote_1mins')
@@ -456,8 +473,11 @@ class Quote_1hour(Base, QuoteMixin):
     __tablename__ = 'quote_1hour'
 
     timestamp: Mapped[DateTime] = mapped_column(DateTime, index=True)
-    # vfi_id: Mapped[int] = mapped_column(ForeignKey('vfi.id'))
     vfi_time_series_id: Mapped[int] = mapped_column(ForeignKey('vfi_time_series.id'))
+    
+    __table_args__ = (
+        UniqueConstraint('vfi_time_series_id', 'timestamp', name='uq_quote_1hour_vfi_ts_timestamp'),
+    )
     
     # child of ------------------------------------------------------
     vfi_time_series: Mapped["VfiTimeSeries"] = relationship(back_populates='quote_1hours')
@@ -471,8 +491,11 @@ class Quote_1day(Base, QuoteMixin):
     __tablename__ = 'quote_1day'
 
     q_date: Mapped[Date] = mapped_column(Date, index=True)
-    # vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
     vfi_time_series_id: Mapped[int] = mapped_column(ForeignKey('vfi_time_series.id'))
+    
+    __table_args__ = (
+        UniqueConstraint('vfi_time_series_id', 'q_date', name='uq_quote_1day_vfi_ts_date'),
+    )
     
     # child of ------------------------------------------------------
     vfi_time_series: Mapped["VfiTimeSeries"] = relationship(back_populates='quote_1days')
@@ -486,8 +509,11 @@ class Quote_1week(Base, QuoteMixin):
     __tablename__ = 'quote_1week'
 
     q_date: Mapped[Date] = mapped_column(Date, index=True)
-    # vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
     vfi_time_series_id: Mapped[int] = mapped_column(ForeignKey('vfi_time_series.id'))
+
+    __table_args__ = (
+        UniqueConstraint('vfi_time_series_id', 'q_date', name='uq_quote_1week_vfi_ts_date'),
+    )
     
     # child of ------------------------------------------------------
     vfi_time_series: Mapped["VfiTimeSeries"] = relationship(back_populates='quote_1weeks')
@@ -501,8 +527,11 @@ class Quote_1month(Base, QuoteMixin):
     __tablename__ = 'quote_1month'
 
     q_date: Mapped[Date] = mapped_column(Date, index=True)
-    # vfi_id: Mapped[int]  = mapped_column(ForeignKey('vfi.id'))
     vfi_time_series_id: Mapped[int] = mapped_column(ForeignKey('vfi_time_series.id'))
+    
+    __table_args__ = (
+        UniqueConstraint('vfi_time_series_id', 'q_date', name='uq_quote_1month_vfi_ts_date'),
+    )
     
     # child of ------------------------------------------------------
     vfi_time_series: Mapped["VfiTimeSeries"] = relationship(back_populates='quote_1months')

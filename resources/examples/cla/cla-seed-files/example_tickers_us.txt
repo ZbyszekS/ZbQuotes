@@ -1,0 +1,27 @@
+# US Stock Tickers (NYSE/NASDAQ)
+# Note: No suffix needed for US stocks - defaults to NYSE
+
+# Technology
+AAPL
+MSFT
+GOOGL
+META
+NVDA
+
+# Finance
+JPM
+BAC
+WFC
+GS
+
+# Healthcare
+JNJ
+UNH
+PFE
+ABBV
+
+# Consumer
+AMZN
+TSLA
+WMT
+HD
