@@ -1,0 +1,5 @@
+2026-04-09 08:39:42 - quote_importer - INFO - Starting import of all quotes
+2026-04-09 08:39:42 - quote_importer - INFO - - Importing 18 time series
+2026-04-09 08:39:42 - quote_importer - INFO - - Time series to be imported: ['BNP.WA_1d', 'BDX.WA_1d', 'CDR.WA_1d', 'DNP.WA_1d', 'BHW.WA_1d', 'ING.WA_1d', 'KGH.WA_1d', 'LPP.WA_1d', 'MBK.WA_1d', 'MIL.WA_1d']
+2026-04-09 08:40:19 - quote_importer - INFO - - Downloaded 53002 quotes, 104 dividends, 2 splits for 10 time series
+2026-04-09 08:40:59 - quote_importer - INFO - - Writing 53002 quotes, 104 dividends, 2 splits to db

@@ -1,0 +1,25 @@
+2026-04-08 19:55:43 - quote_importer - INFO - Starting import of all quotes
+2026-04-08 19:55:43 - quote_importer - INFO - - Importing 4 time series
+2026-04-08 19:55:43 - quote_importer - INFO - - Time series to be imported: ['KGH.WA_1d', 'PGE.WA_1d', 'PKN.WA_1d', 'TPE.WA_1d']
+2026-04-08 19:55:43 - quote_importer - INFO - - Downloaded 4 quotes, 0 dividends, 0 splits for 4 time series
+2026-04-08 19:55:43 - quote_importer - INFO - - Writing 4 quotes, 0 dividends, 0 splits to db
+2026-04-08 19:55:44 - quote_importer - INFO - - Written to database
+2026-04-08 19:55:45 - quote_importer - INFO - ------------------------------------
+2026-04-08 19:55:45 - quote_importer - INFO - Summary report of import
+2026-04-08 19:55:45 - quote_importer - INFO - ------------------------------------
+2026-04-08 19:55:45 - quote_importer - INFO - Import started at: 2026-04-08 19:55:43
+2026-04-08 19:55:45 - quote_importer - INFO - Import end at    : 2026-04-08 19:55:45
+2026-04-08 19:55:45 - quote_importer - INFO - ------------------------------------
+2026-04-08 19:55:45 - quote_importer - INFO - Time series to be imported: 4
+2026-04-08 19:55:45 - quote_importer - INFO - Time series to be imported by timeframe: Counter4Tf(_1m=0, _1h=0, _1d=4, _1w=0, _1mo=0)
+2026-04-08 19:55:45 - quote_importer - INFO - Time series fetched    : 4
+2026-04-08 19:55:45 - quote_importer - INFO - Time series not fetched: 0
+2026-04-08 19:55:45 - quote_importer - INFO - Error during fetching  : 0
+2026-04-08 19:55:45 - quote_importer - INFO - No new data during fetch: 0
+2026-04-08 19:55:45 - quote_importer - INFO - Quotes fetched         : 4
+2026-04-08 19:55:45 - quote_importer - INFO - Dividends fetched      : 0
+2026-04-08 19:55:45 - quote_importer - INFO - Splits fetched         : 0
+2026-04-08 19:55:45 - quote_importer - INFO - Fetch errors           : []
+2026-04-08 19:55:45 - quote_importer - INFO - Chunk size             : 10
+2026-04-08 19:55:45 - quote_importer - INFO - Chunks number: 1
+2026-04-08 19:55:45 - quote_importer - INFO - ------------------------------------

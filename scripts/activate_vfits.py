@@ -1,3 +1,112 @@
+GFI_NAMES_2_ACTIVATE = [
+    "PKNORLEN",
+    "PKOBP",
+    "SANPL",
+    "PEKAO",
+    "PZU",
+    "KGHM",
+    "INGBSK",
+    "MBANK",
+    "DINOPL",
+    "LPP",
+    "CDPROJEKT",
+    "PGE",
+    "BNPPPL",
+    "MILLENNIUM",
+    "ORANGEPL",
+    "BUDIMEX",
+    "TAURONPE",
+    "HANDLOWY"
+]
+GFI_NAMES_2_ACTIVATE_2 = [
+    "NVIDIA Corporation",
+    "Apple Inc.",
+    "Alphabet Inc.",
+    "MOL HUNGARIAN OIL",
+    "Microsoft Corporation",
+    "Amazon.com, Inc.",
+    "Taiwan Semiconductor Manufactur",
+    "Meta Platforms, Inc.",
+    "Broadcom Inc.",
+    "Tesla, Inc.",
+    "Walmart Inc.",
+    "Eli Lilly and Company",
+    "JP Morgan Chase & Co.",
+    "Exxon Mobil Corporation",
+    "CEZ",
+    "Visa Inc.",
+    "Tencent Holding Ltd."
+    "Johnson & Johnson",
+    "ASML Holding N.V. - New York Re",
+    "Micron Technology, Inc.",
+    "Mastercard Incorporated",
+    "Costco Wholesale Corporation",
+    "Oracle Corporation",
+    "Chevron Corporation",
+    "Netflix, Inc.",
+    "AbbVie Inc.",
+    "Palantir Technologies Inc.",
+    "Bank of America Corporation",
+    "Procter & Gamble Company (The)",
+    "Advanced Micro Devices, Inc.",
+    "Coca-Cola Company (The)",
+    "Home Depot, Inc. (The)",
+    "Caterpillar, Inc.",
+    "Cisco Systems, Inc.",
+    "Roche Holding Ltd",
+    "GE Aerospace",
+    "Alibaba Group Holding Limited",
+    "AstraZeneca PLC US0463531089 AZN",
+    "Applied Materials, Inc.",
+    "Merck & Company, Inc.",
+    "Novartis AG",
+    "China Construction Bank Corp.",
+    "Agricultural Bank of China",
+    "Toyota Motor Corporation",
+    "RTX Corporation",
+    "HSBC Holdings, plc.",
+    "Morgan Stanley",
+    "Shell PLC",
+    "Philip Morris International Inc",
+    "UnitedHealth Group Incorporated",
+    "AstraZeneca PLC",
+    "Nestle S.A.",
+    "Goldman Sachs Group, Inc. (The)",
+    "Wells Fargo & Company",
+    "Bank of China, Ltd.",
+    "T-Mobile US, Inc.",
+    "GE Vernova Inc.",
+    "International Business Machines",
+    "LVMH EO 0,3",
+    "Linde plc",
+    "Royal Bank Of Canada",
+    "McDonald's Corporation",
+    "Intel Corporation",
+    "NESR.DE",
+    "Verizon Communications Inc.",
+    "SAP SE US8030542042 SAP",
+    "Pepsico, Inc.",
+    "American Express Company",
+    "AT&T Inc.",
+    "KLA Corporation",
+    "HSBC HOLDINGS PLC ORD $0.50 (UK",
+    "SHELL PLC ORD EUR0.07",
+    "Citigroup, Inc.",
+    "Amgen Inc.",
+    "NextEra Energy, Inc.",
+    "Abbott Laboratories",
+    "Salesforce, Inc.",
+    "SAP SE",
+    "Walt Disney Company (The)",
+    "Thermo Fisher Scientific Inc",
+    "TJX Companies, Inc. (The)",
+    "Texas Instruments Incorporated",
+    "Gilead Sciences, Inc.",
+    "Intuitive Surgical, Inc.",
+    "Charles Schwab Corporation (The",
+    "BHP Group Limited",
+]
+
 # script to activate getting quotes for financial instrument
 # declare FI to activate in FITS_TO_ACTIVATE list and run this script
 from dataclasses import dataclass, field
@@ -17,8 +126,6 @@ print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
 engine = create_engine(DATABASE_URL, echo=False)
 
 
-
-
 # ── What to activate ───────────────────────────────────────────────────────
 @dataclass
 class TsFi:
@@ -28,13 +135,16 @@ class TsFi:
     vfit_name:  str = None
 
 FITS_TO_ACTIVATE = [
-    TsFi(gfi_name="PGE", time_frames=["1d"]),
-    TsFi(gfi_name='TAURONPE'),
-    TsFi(gfi_name='PKNORLEN'),
-    TsFi(gfi_name='KGHM'),
-
+    # TsFi(gfi_name="PGE", time_frames=["1d"]),
+    # TsFi(gfi_name='TAURONPE'),
+    # TsFi(gfi_name='PKNORLEN'),
+    # TsFi(gfi_name='KGHM'),
 ]
 
+for gfi_name in GFI_NAMES_2_ACTIVATE:
+    FITS_TO_ACTIVATE.append(TsFi(gfi_name=gfi_name, time_frames=["1d"]))
+for gfi_name in GFI_NAMES_2_ACTIVATE_2:
+    FITS_TO_ACTIVATE.append(TsFi(gfi_name=gfi_name, time_frames=["1d"]))
 
 
 

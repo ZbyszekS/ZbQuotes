@@ -4,6 +4,8 @@ from logging import getLogger
 import pandas as pd
 import yfinance as yf
 from zb_quotes.dtos import VfiTimeSeriesDTO
+from zb_quotes.import_data.report_import import ReportOfImport
+
 # from zb_quotes.models import YfDownloadCondition, YfDownloadTimeWindowCondition
 
 
@@ -32,9 +34,9 @@ class DownloadCond:
     max_days_in:   int
 
 
-yf_download_limits = {'1d': DownloadCond('1d', 365*300, 0),
-                      '1h': DownloadCond('1h',     730, 0),
-                      '1m': DownloadCond('1m',      30, 7)}
+yf_download_limits = {'1d': DownloadCond('1d', 365*300, 365*300),
+                      '1h': DownloadCond('1h',     730,     730),
+                      '1m': DownloadCond('1m',      30,       7)}
 
 
 @dataclass(frozen=True)
@@ -149,9 +151,9 @@ class YfDao:
     
 
     def _download_quotes(self, ticker_list: list[str], condition: YfDownloadCondition) -> pd.DataFrame:
-        if len(ticker_list) < -10:
-            print(f"Warning: Too few tickers to download: {len(ticker_list)}")
-            return pd.DataFrame()
+        # if len(ticker_list) < -10:
+        #     print(f"Warning: Too few tickers to download: {len(ticker_list)}")
+        #     return pd.DataFrame()
 
         if condition.time_window.period is not None:
             # download for specified period param
@@ -171,7 +173,7 @@ class YfDao:
                 interval=condition.interval,
 
                 start=condition.time_window.fetch_range[0], 
-                end=condition.time_window.fetch_range[1], 
+                end  =condition.time_window.fetch_range[1], 
 
                 auto_adjust=False,
                 actions=True
@@ -380,25 +382,73 @@ class YfDao:
             r[ticker] = all_tickers_to_vfi_ts_id[ticker + "_" + condition.interval]
         return r
 
-    def download_data_for_vfi_ts_list(self, vfi_tss_to_import: list[VfiTimeSeriesDTO] | tuple[VfiTimeSeriesDTO]):
+    def download_data_for_vfi_ts_list(self, vfi_tss_to_import: list[VfiTimeSeriesDTO] | tuple[VfiTimeSeriesDTO], report: ReportOfImport):
         q, d, s = [], [], []
         tickers_to_vfi_ts_id = {}
         for vfi_ts in vfi_tss_to_import:
             tickers_to_vfi_ts_id[vfi_ts.yf_ticker + "_" + YF_TF_NAME[vfi_ts.timeframe_id]] = vfi_ts.id
         
         yf_prompts: list[YfDownloadPrompt] = self._get_yf_prompts_for_vfi_ts(vfi_tss_to_import)
-        yf_prompts_cond_to_tickers = self._group_by_condition(yf_prompts)
+        yf_prompts_cond_2_tickers = self._group_by_condition(yf_prompts)
         
-        condition: YfDownloadCondition
-        for condition, tickers in yf_prompts_cond_to_tickers.items():
-            df                    = self._download_quotes(tickers, condition) # get quotes from yFinance!
-            tickers_to_vfi_id     = self._tickers_to_vfi(condition, tickers, tickers_to_vfi_ts_id)
-            quotes, dividends, splits = self._parse_multi_ticker_vectorized_universal_z(df, tickers_to_vfi_id)
-            # records_for_condition = self.parse_multi_ticker(df, tickers_to_vfi_id)
-            # records_for_condition = self.parse_multi_ticker_fast(df, tickers_to_vfi_id)
-            q.extend(quotes)
-            d.extend(dividends)
-            s.extend(splits)
+        # condition: YfDownloadCondition
+        for condition, tickers in yf_prompts_cond_2_tickers.items():
+            
+            # main fetching expression:
+            df = self._download_quotes(tickers, condition)
+
+            if df.empty:
+                logger.warning(f"Downloaded empty dataframe for condition: {condition}")
+            else:
+                tickers_2_vfi_id = self._tickers_to_vfi(condition, tickers, tickers_to_vfi_ts_id)
+                quotes, dividends, splits = self._parse_multi_ticker_vectorized_universal_z(df, tickers_2_vfi_id)
+                q.extend(quotes)
+                d.extend(dividends)
+                s.extend(splits)
+                self._analyze_and_report(df, tickers, report)
         return q, d, s
+
+    
+    def _analyze_download_results(self, df: pd.DataFrame, ticker_list: list[str]) -> dict:
+        results = {
+            'successful': [],
+            'no_data': [],
+            'errors': []
+        }
         
-                    
+        if df.empty:
+            # All tickers failed
+            results['errors'] = ticker_list.copy()
+            return results
+        
+        # Check which tickers are present in the DataFrame
+        if isinstance(df.columns, pd.MultiIndex):
+            available_tickers = df.columns.get_level_values(1).unique().tolist()
+        else:
+            # Single ticker case
+            available_tickers = [ticker_list[0]] if len(ticker_list) == 1 else []
+        
+        # Categorize results
+        for ticker in ticker_list:
+            if ticker in available_tickers:
+                # Check if ticker has actual data (not all NaN)
+                if isinstance(df.columns, pd.MultiIndex):
+                    ticker_data = df.xs(ticker, axis=1, level=1)
+                else:
+                    ticker_data = df
+                if ticker_data.dropna(how='all').empty:
+                    results['no_data'].append(ticker)
+                else:
+                    results['successful'].append(ticker)
+            else:
+                results['errors'].append(ticker)
+        
+        return results
+        
+    def _analyze_and_report(self, pd, ticker_list, report: ReportOfImport):
+        results = self._analyze_download_results(pd, ticker_list)
+        report.vfits.fetched += len(results['successful'])
+        report.vfits.nonfetched += len(results['no_data']) + len(results['errors'])
+        report.vfits.non_fetched_by_cause.no_new_data += len(results['no_data'])
+        report.vfits.non_fetched_by_cause.error += len(results['errors'])
+        report.vfits.fetch_error.extend(results['errors'])        
