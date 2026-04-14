@@ -20,7 +20,8 @@ class VfiTimeSeriesDTO(BaseDTO):
     last_imported_from:date     | None = None
     last_imported_to:  date     | None = None
 
-    # New field for the nested value
+    # ADDITIONAL FIELDS
+    # Additional field for the value from parent path: Vfi -> Qfi -> Gfi -> ticker_yf
     yf_ticker: str | None = None  
 
     @classmethod

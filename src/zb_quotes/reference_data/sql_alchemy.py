@@ -1,0 +1,3 @@
+class SQL_ALCHEMY:
+    MAX_PARAMETERS_PER_INSERT = 32_766
+    

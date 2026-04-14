@@ -1,0 +1,8 @@
+2026-04-14 12:36:57 - quote_importer - INFO - ----------------------------------------
+2026-04-14 12:37:01 - quote_importer - INFO - Report from import quotes from yfinance
+2026-04-14 12:37:08 - quote_importer - INFO - Start time     : 2026-04-14 12:32:43.101529, end time: 2026-04-14 12:36:52.404357
+2026-04-14 12:37:28 - quote_importer - INFO - Duration       : 0:04:09.302828
+2026-04-14 12:37:36 - quote_importer - INFO - Fetch duration : 0:00:05.536201
+2026-04-14 12:37:54 - quote_importer - INFO - Vfi time series to process: 18
+2026-04-14 12:37:59 - quote_importer - INFO - Tickers to vfits_id: {'BNP.WA': 93, 'BDX.WA': 108, 'CDR.WA': 118, 'DNP.WA': 168, 'BHW.WA': 218, 'ING.WA': 223, 'KGH.WA': 243, 'LPP.WA': 253, 'MBK.WA': 263, 'MIL.WA': 268, 'OPL.WA': 298, 'PEO.WA': 303, 'PGE.WA': 308, 'PKN.WA': 313, 'PKO.WA': 318, 'PZU.WA': 333, 'SPL.WA': 348, 'TPE.WA': 378}
+2026-04-14 12:38:06 - quote_importer - INFO - --------- processing info --------------

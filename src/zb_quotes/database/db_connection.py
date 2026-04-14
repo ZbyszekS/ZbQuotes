@@ -4,8 +4,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from config import *
 import logging
+from zb_quotes.config import *
 
 IMPORT_LOGGER = logging.getLogger(__name__)
 

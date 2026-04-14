@@ -7,7 +7,7 @@ import datetime as dt
 
 @dataclass
 class Timing:
-    beg_time: dt.datetime
+    _beg_time: dt.datetime
     _end_time: dt.datetime = None
     _duration: int = None
     
@@ -18,8 +18,8 @@ class Timing:
     @end_time.setter
     def end_time(self, value: dt.datetime):
         self._end_time = value
-        if self._end_time and self.beg_time:
-            self._duration = int((self._end_time - self.beg_time).total_seconds())
+        if self._end_time and self._beg_time:
+            self._duration = int((self._end_time - self._beg_time).total_seconds())
     
     @property
     def duration(self) -> int:
@@ -51,8 +51,8 @@ class VfiTsFetch:
     
 
 @dataclass
-class ReportOfImport:
-    timing: Timing     = field(default_factory=lambda: Timing(beg_time=dt.datetime.now()))
+class ImportReport:
+    timing: Timing     = field(default_factory=lambda: Timing(_beg_time=dt.datetime.now()))
     vfits:  VfiTsFetch = field(default_factory=lambda: VfiTsFetch(
         on_input      =0,
         on_input_by_tf=Counter4Tf(_1m=0, _1h=0, _1d=0, _1w=0, _1mo=0),

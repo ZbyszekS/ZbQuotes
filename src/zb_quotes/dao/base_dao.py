@@ -42,5 +42,12 @@ class BaseDao(Generic[ModelType]):
             col  = getattr(self.model_class, key)
             stmt = stmt.where(col == value)
         return list(session.execute(stmt).scalars())
+    
+
+    def get_many(self, session: Session, *filters) -> list[ModelType]:
+        stmt = select(self.model_class)
+        if filters:
+            stmt = stmt.where(*filters)
+        return list(session.execute(stmt).scalars())
 
     

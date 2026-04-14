@@ -16,8 +16,8 @@ class BaseDTO:
         
         data = {
             name: getattr(model, name)
-            for name in dto_field_names
-            if hasattr(model, name)
+                for name in dto_field_names
+                if hasattr(model, name)
         }
         
         return cls(**data)  # type: ignore

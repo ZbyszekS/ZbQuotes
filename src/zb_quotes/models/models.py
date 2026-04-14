@@ -1,4 +1,5 @@
 # This is the models file for the ZbQuotes database
+from typing import TypeVar
 from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
@@ -409,8 +410,8 @@ class VfiTimeSeries(Base):
 
     # import state tracking
     last_imported_at:  Mapped[datetime | None] = mapped_column(DateTime)
-    last_imported_from:Mapped[date     | None] = mapped_column(Date)
-    last_imported_to:  Mapped[date     | None] = mapped_column(Date)
+    last_imported_from:Mapped[date     | None] = mapped_column(Date) # date of the first quote ever imported
+    last_imported_to:  Mapped[date     | None] = mapped_column(Date) # last date used as condition for import
 
     __table_args__ = (
         UniqueConstraint('vfi_id', 'timeframe_id'),
@@ -539,4 +540,8 @@ class Quote_1month(Base, QuoteMixin):
     def __repr__(self):
         return f"<Quote_1month(id={self.id}, vfi_id={self.vfi_id}, q_date={self.q_date}, open={self.open}, high={self.high}, low={self.low}, close={self.close}, volume={self.volume})>"        
     
+
+# model type class
+ModelType = TypeVar("ModelType", bound=Base)
+
 

@@ -4,7 +4,7 @@ from logging import getLogger
 import pandas as pd
 import yfinance as yf
 from zb_quotes.dtos import VfiTimeSeriesDTO
-from zb_quotes.import_data.report_import import ReportOfImport
+from zb_quotes.import_data.report_import import ImportReport
 
 # from zb_quotes.models import YfDownloadCondition, YfDownloadTimeWindowCondition
 
@@ -382,7 +382,7 @@ class YfDao:
             r[ticker] = all_tickers_to_vfi_ts_id[ticker + "_" + condition.interval]
         return r
 
-    def download_data_for_vfi_ts_list(self, vfi_tss_to_import: list[VfiTimeSeriesDTO] | tuple[VfiTimeSeriesDTO], report: ReportOfImport):
+    def download_data_for_vfi_ts_list(self, vfi_tss_to_import: list[VfiTimeSeriesDTO] | tuple[VfiTimeSeriesDTO], report: ImportReport):
         q, d, s = [], [], []
         tickers_to_vfi_ts_id = {}
         for vfi_ts in vfi_tss_to_import:
@@ -445,7 +445,7 @@ class YfDao:
         
         return results
         
-    def _analyze_and_report(self, pd, ticker_list, report: ReportOfImport):
+    def _analyze_and_report(self, pd, ticker_list, report: ImportReport):
         results = self._analyze_download_results(pd, ticker_list)
         report.vfits.fetched += len(results['successful'])
         report.vfits.nonfetched += len(results['no_data']) + len(results['errors'])

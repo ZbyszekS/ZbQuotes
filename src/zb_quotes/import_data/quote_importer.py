@@ -19,7 +19,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects import sqlite
 
-from zb_quotes.import_data.report_import import ReportOfImport
+from zb_quotes.import_data.report_import import ImportReport
 from zb_quotes.models.models import Base
 from zb_quotes.database.db_session_provider import DBSessionProvider
 from zb_quotes.services.services_provider import SERVICES_PROVIDER
@@ -27,7 +27,7 @@ from zb_quotes.dtos import VfiTimeSeriesDTO
 from zb_quotes.models import Quote_1day, Quote_1hour, Quote_1week, Quote_1month, Dividend, Split
 from zb_quotes.import_data.yf_dao import YfDao
 from zb_quotes.import_data.report_import import Counter4Tf
-from config import IMPORT_LOGGER, LOGGER
+from zb_quotes.config import IMPORT_LOGGER, LOGGER
 
 ModelType = TypeVar("ModelType", bound=Base)
 
@@ -48,7 +48,7 @@ class QuoteImporter:
         }
         self.vfits_2_gfi_cur_ids = SERVICES_PROVIDER.get_gfiids_curids_4_vfitsids()
         self.timeframe_id_2_timeframe_code = SERVICES_PROVIDER.get_vfi_timeframe_id_2_timeframe_code()
-        self.report = ReportOfImport()
+        self.report = ImportReport()
         self.MAX_PARAMETERS_PER_INSERT = 32_766 
 
 
@@ -58,7 +58,7 @@ class QuoteImporter:
     ###############################################################
 
     def import_all_quotes(self):
-        self.report.timing.beg_time = dt.datetime.now()
+        self.report.timing._beg_time = dt.datetime.now()
         IMPORT_LOGGER.info("Starting import of all quotes")
         vfi_tss_to_import = self._get_vfi_tss_to_import()
         self._report_input(vfi_tss_to_import, self.vfits_batch_size)
@@ -81,7 +81,7 @@ class QuoteImporter:
         IMPORT_LOGGER.info("Summary report of import")
         IMPORT_LOGGER.info("------------------------------------")
   
-        IMPORT_LOGGER.info(f"Import started at: {self.report.timing.beg_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        IMPORT_LOGGER.info(f"Import started at: {self.report.timing._beg_time.strftime('%Y-%m-%d %H:%M:%S')}")
         IMPORT_LOGGER.info(f"Import end at    : {self.report.timing.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         IMPORT_LOGGER.info("------------------------------------")
         IMPORT_LOGGER.info(f"VfiTs to be imported: {self.report.vfits.on_input}")
@@ -142,7 +142,7 @@ class QuoteImporter:
 
     def _get_vfi_tss_to_import(self) -> list[VfiTimeSeriesDTO]:
         vfi_tss_to_import: list[VfiTimeSeriesDTO]
-        vfi_tss_to_import = SERVICES_PROVIDER.all_enabled_vfi_timeseries()
+        vfi_tss_to_import = SERVICES_PROVIDER.all_vfits_enabled()
         vfi_tss_to_import = self._remove_already_imported_vfi_tss(vfi_tss_to_import)
         vfi_tss_to_import.sort(key=lambda x: x.timeframe_id)
         return vfi_tss_to_import
@@ -203,7 +203,7 @@ class QuoteImporter:
                 # it was the first import:
                 model_cls = self._model_cls_4_vfi_ts_id(vfi_ts_dto.id)
                 # it has to be done using current session
-                last_imported_from = SERVICES_PROVIDER.get_first_quote_date_for_vfi_ts(vfi_ts_dto, model_cls, session)
+                last_imported_from = SERVICES_PROVIDER.get_first_quote_date_4_vfi_ts(vfi_ts_dto, model_cls, session)
             else:
                 last_imported_from = vfi_ts_dto.last_imported_from
             
